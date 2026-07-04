@@ -1,0 +1,6 @@
+{
+  "name": "Corner Streams",
+  "description": "A paperless school management platform featuring CBT exam engine, gradebooks, regulatory report cards, parent/student portals, and billing ledgers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
