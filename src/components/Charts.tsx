@@ -1,14 +1,20 @@
 import React from "react";
+import { motion } from "motion/react";
 
 export function ChartCard({ children, title, subtitle, testid }: any) {
   return (
-    <div className="cs-card p-5 flex flex-col justify-between" data-testid={testid}>
+    <motion.div 
+      whileHover={{ scale: 1.02 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="cs-card p-5 flex flex-col justify-between cursor-default transition-shadow hover:shadow-md" 
+      data-testid={testid}
+    >
       <div>
         <div className="font-display font-semibold cs-text-navy text-sm">{title}</div>
         {subtitle && <div className="text-[10px] text-slate-500 uppercase mt-0.5">{subtitle}</div>}
       </div>
       <div className="mt-4 flex-1 h-36 flex items-center justify-center">{children}</div>
-    </div>
+    </motion.div>
   );
 }
 

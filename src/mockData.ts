@@ -120,8 +120,13 @@ export const mockExams: CbtExam[] = [
     id: 'ex-01',
     title: 'Mid-Term Resiliency Mathematics Assessment',
     subject: 'Mathematics',
-    durationMinutes: 10,
-    published: false,
+    durationMinutes: 45,
+    published: true,
+    publishedToStudents: true,
+    uploadedAt: '2026-07-23T14:30:00.000Z',
+    uploadedBy: 'Mrs. Folasade Adebayo',
+    targetClass: 'SS 2A',
+    uploadSource: 'excel',
     questions: [
       {
         id: 'q1',
@@ -154,6 +159,69 @@ export const mockExams: CbtExam[] = [
         text: 'What is the surface area calculation of a sphere template of radius r = 7 cm? (Take π ≈ 22/7)',
         options: ['154 cm²', '308 cm²', '616 cm²', '462 cm²'],
         correctOptionIndex: 2,
+        marks: 10,
+      }
+    ]
+  },
+  {
+    id: 'ex-02',
+    title: 'SS 2 Physics Optics & Electromagnetism Test',
+    subject: 'Physics',
+    durationMinutes: 30,
+    published: false,
+    publishedToStudents: false,
+    uploadedAt: '2026-07-24T00:15:00.000Z',
+    uploadedBy: 'Dr. Emeka Nwosu',
+    targetClass: 'SS 2A',
+    uploadSource: 'excel',
+    questions: [
+      {
+        id: 'pq1',
+        text: 'Calculate the focal length of a concave mirror with radius of curvature R = 30 cm.',
+        options: ['15 cm', '30 cm', '60 cm', '7.5 cm'],
+        correctOptionIndex: 0,
+        marks: 10,
+      },
+      {
+        id: 'pq2',
+        text: 'Which phenomenon best explains the dispersion of white light in a glass prism?',
+        options: ['Total Internal Reflection', 'Diffraction', 'Refraction at different wavelengths', 'Polarization'],
+        correctOptionIndex: 2,
+        marks: 10,
+      },
+      {
+        id: 'pq3',
+        text: 'SI unit of Magnetic Flux Density (B) is:',
+        options: ['Tesla', 'Weber', 'Henry', 'Gauss'],
+        correctOptionIndex: 0,
+        marks: 10,
+      }
+    ]
+  },
+  {
+    id: 'ex-03',
+    title: 'General English Comprehension & Grammar Examination',
+    subject: 'English Language',
+    durationMinutes: 60,
+    published: true,
+    publishedToStudents: true,
+    uploadedAt: '2026-07-22T09:00:00.000Z',
+    uploadedBy: 'Mrs. Folasade Adebayo',
+    targetClass: 'SS 2A',
+    uploadSource: 'excel',
+    questions: [
+      {
+        id: 'eq1',
+        text: 'Identify the synonym of the word "Meticulous":',
+        options: ['Careless', 'Painstaking', 'Hasty', 'Obscure'],
+        correctOptionIndex: 1,
+        marks: 10,
+      },
+      {
+        id: 'eq2',
+        text: 'Choose the correct preposition: "The principal congratulated the students _____ their outstanding score."',
+        options: ['for', 'on', 'about', 'with'],
+        correctOptionIndex: 1,
         marks: 10,
       }
     ]
@@ -316,3 +384,127 @@ export const mockBillingRecords: BillingRecord[] = [
     history: []
   }
 ];
+
+export const mockLedgerEntries: any[] = [
+  {
+    id: 'LEDG-001',
+    date: '2026-07-25 09:30',
+    sector: 'Tuition & Academic Fees',
+    type: 'INFLOW',
+    title: 'SS2 Term 1 Full Tuition & CBT Levy Clearance',
+    amount: 170000,
+    payerOrPayee: 'Amira Adekunle (Parent of Folasade Adekunle)',
+    paymentMethod: 'Bank Transfer (CBN Reconciled)',
+    status: 'RECONCILED',
+    reference: 'REF-CS-88102',
+    receiptNumber: 'RCP/2026/0719',
+    notes: 'Verified via Zenith Bank NIBSS instant settlement portal.',
+    approvedBy: 'Bursar Mrs. Folasade Adebayo'
+  },
+  {
+    id: 'LEDG-002',
+    date: '2026-07-24 14:15',
+    sector: 'Infrastructure & Maintenance',
+    type: 'OUTFLOW',
+    title: 'Main Science Wing 15kVA Solar Inverter Battery Replacement',
+    amount: 850000,
+    payerOrPayee: 'Lagos Solar Power Solutions Ltd',
+    paymentMethod: 'Bank Transfer',
+    status: 'RECONCILED',
+    reference: 'INV-LS-9921',
+    receiptNumber: 'VCH/2026/0402',
+    notes: '4x LFP Lithium battery packs installed and tested in CBT server room.',
+    approvedBy: 'Super Admin David Macaulay'
+  },
+  {
+    id: 'LEDG-003',
+    date: '2026-07-22 11:00',
+    sector: 'ICT & CBT Engine Infrastructure',
+    type: 'OUTFLOW',
+    title: 'LAN Mesh Offline Server Node & Wi-Fi Access Points',
+    amount: 320000,
+    payerOrPayee: 'TechServ Networks Nigeria',
+    paymentMethod: 'Bank Transfer',
+    status: 'RECONCILED',
+    reference: 'TSN-40192',
+    receiptNumber: 'VCH/2026/0398',
+    notes: 'Dual-band Gigabit Access Points deployed across SS 1 - SS 3 CBT Halls.',
+    approvedBy: 'Super Admin David Macaulay'
+  },
+  {
+    id: 'LEDG-004',
+    date: '2026-07-20 08:00',
+    sector: 'Staff Payroll & Allowances',
+    type: 'OUTFLOW',
+    title: 'Academic & Non-Academic Staff July Monthly Salary Disbursement',
+    amount: 4850000,
+    payerOrPayee: 'Corner Streams Teaching & Admin Staff (28 Personnel)',
+    paymentMethod: 'Bank Transfer (Bulk Payroll)',
+    status: 'RECONCILED',
+    reference: 'PRL-JULY-2026',
+    receiptNumber: 'PRL/2026/0701',
+    notes: 'Includes CBT invigilation bonuses and health insurance deductions.',
+    approvedBy: 'Bursar Mrs. Folasade Adebayo'
+  },
+  {
+    id: 'LEDG-005',
+    date: '2026-07-18 16:45',
+    sector: 'Tuition & Academic Fees',
+    type: 'INFLOW',
+    title: 'SS2 Partial Tuition Deposit + Admission Fee',
+    amount: 80000,
+    payerOrPayee: 'Chibuzor Silas (Parent)',
+    paymentMethod: 'POS Terminal Sync',
+    status: 'RECONCILED',
+    reference: 'POS-883912',
+    receiptNumber: 'RCP/2026/0688',
+    notes: 'Card payment processed at Bursary counter POS terminal.',
+    approvedBy: 'Assistant Bursar Mr. Timothy'
+  },
+  {
+    id: 'LEDG-006',
+    date: '2026-07-15 10:20',
+    sector: 'Transport & Fleet Operations',
+    type: 'OUTFLOW',
+    title: 'School Bus Fleet (Buses A, B & C) Diesel Refill & Oil Filter Service',
+    amount: 240000,
+    payerOrPayee: 'TotalEnergies Service Station Victoria Island',
+    paymentMethod: 'Corporate Card',
+    status: 'RECONCILED',
+    reference: 'TOT-2026-904',
+    receiptNumber: 'VCH/2026/0380',
+    notes: '500 Liters AGO diesel purchased for morning & afternoon student routes.',
+    approvedBy: 'Transport Manager Mr. Audu'
+  },
+  {
+    id: 'LEDG-007',
+    date: '2026-07-12 13:00',
+    sector: 'Stationery & Exam Supplies',
+    type: 'OUTFLOW',
+    title: 'Custom Answer Sheets & WAEC Standard Graph Papers Printing',
+    amount: 180000,
+    payerOrPayee: 'Academy Press Plc',
+    paymentMethod: 'Bank Transfer',
+    status: 'RECONCILED',
+    reference: 'AP-2026-339',
+    receiptNumber: 'VCH/2026/0375',
+    notes: '10,000 serialized examination booklets printed for Term 3 finals.',
+    approvedBy: 'Bursar Mrs. Folasade Adebayo'
+  },
+  {
+    id: 'LEDG-008',
+    date: '2026-07-10 11:30',
+    sector: 'Canteen, Events & Co-Curricular',
+    type: 'INFLOW',
+    title: 'Inter-House Sports T-Shirt Sales & Sponsorship Registration',
+    amount: 650000,
+    payerOrPayee: 'Parent-Teacher Association & Sponsors',
+    paymentMethod: 'Bank Transfer (CBN Reconciled)',
+    status: 'RECONCILED',
+    reference: 'SPRT-2026-01',
+    receiptNumber: 'RCP/2026/0650',
+    notes: 'Collected for Yellow, Blue, Green, and Red House sportswear.',
+    approvedBy: 'Sports Master Mr. Kingsley'
+  }
+];
+

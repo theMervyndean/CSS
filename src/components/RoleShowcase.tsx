@@ -163,8 +163,11 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
         
         {/* HEADER SECTION */}
         <div className="text-center space-y-4 max-w-4xl mx-auto mb-16">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wider bg-emerald-50 text-emerald-700 uppercase border border-emerald-100">
+            Interactive Workspace Simulator
+          </span>
           <h2 className="font-sans text-3xl sm:text-4xl lg:text-5xl font-black text-indigo-950 dark:text-white leading-tight">
-            Explore the Workspace & Request a Demo
+            Explore the Workspace & <span className="text-emerald-500">Request a Demo</span>
           </h2>
           <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base leading-relaxed max-w-2xl mx-auto font-medium">
             Experience our school-management logic in action. Click through the live simulation modules below to visualize CBT test resilience, automated score scaling, financial ledger structures, and subscription plans in real-time.
@@ -326,11 +329,11 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
 
               {activeWorkspace === "financial" && (
                 <div className="space-y-4">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-black tracking-wider uppercase bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-100">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-black tracking-wider uppercase bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100">
                     AUDITED BURSARY LEDGERS
                   </span>
                   <h3 className="font-sans text-2xl font-black text-indigo-950 dark:text-white leading-tight">
-                    Real-Time Financial Clearsing
+                    Real-Time Financial Clearing
                   </h3>
                   <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-[13px] leading-relaxed">
                     Eliminate physical ledger errors. Our platform connects POS logs, bank transfer receipts, and teacher payroll entries cleanly into one unified bursary spreadsheet with automatic WhatsApp companion syncs.
@@ -340,15 +343,15 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Featured Subsystems:</span>
                     <ul className="space-y-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                       <li className="flex items-center gap-2">
-                        <CheckCircle2 size={12} className="text-purple-500" />
+                        <CheckCircle2 size={12} className="text-emerald-500" />
                         <span><strong>School Fees Reconciliation</strong></span>
                       </li>
                       <li className="flex items-center gap-2">
-                        <CheckCircle2 size={12} className="text-purple-500" />
+                        <CheckCircle2 size={12} className="text-emerald-500" />
                         <span><strong>Admissions Deposits Track</strong></span>
                       </li>
                       <li className="flex items-center gap-2">
-                        <CheckCircle2 size={12} className="text-purple-500" />
+                        <CheckCircle2 size={12} className="text-emerald-500" />
                         <span><strong>Verifiable Payroll Receipts</strong></span>
                       </li>
                     </ul>
@@ -358,7 +361,7 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
 
               {activeWorkspace === "unified" && (
                 <div className="space-y-4">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-black tracking-wider uppercase bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-100">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100">
                     CAMPUS MULTI-TIER DESIGN
                   </span>
                   <h3 className="font-sans text-2xl font-black text-indigo-950 dark:text-white leading-tight">
@@ -371,7 +374,7 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
                   <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-xl space-y-1.5 text-[11px]">
                     <div className="flex justify-between items-center text-slate-500">
                       <span>Supported Cohorts:</span>
-                      <strong className="text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wide">All Grades</strong>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wide">All Grades</strong>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-normal">
                       Modular license structures mean nurseries avoid paying for computer-based testing suites while high schools enjoy the full enterprise spectrum.

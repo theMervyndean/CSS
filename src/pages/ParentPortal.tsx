@@ -5,14 +5,31 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Badge } from "../components/ui/badge";
 import { 
   Download, Printer, QrCode, ShieldCheck, Mail, Landmark, FileText, 
-  Settings, User, GraduationCap, ChevronRight, HelpCircle, FileCheck2, School
+  Settings, User, GraduationCap, ChevronRight, HelpCircle, FileCheck2, School,
+  Sparkles, Clock, Activity, Award, CheckCircle2, ShieldAlert, ChevronDown, Check,
+  Volume2, Brain, Lightbulb, Loader2
 } from "lucide-react";
+import { speakNonyeVoice } from "../utils/nonyeVoicePlayer";
+import nonyeAvatar from "../assets/images/chinonye_portrait.jpg";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from "recharts";
 import { toast } from "sonner";
 import SettingsPanel from "../components/SettingsPanel";
+import CommunicationHub from "../components/CommunicationHub";
 import { UpgradeOverlay } from "../components/UpgradeOverlay";
+import { GradeDistributionChart } from "../components/GradeDistributionChart";
+import { motion, AnimatePresence } from "motion/react";
 
-export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setActiveFont }: any) {
+export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setActiveFont, activeTabProp }: any) {
   const [activeTab, setActiveTab] = useState("overview");
+  const [isModuleSelectorOpen, setIsModuleSelectorOpen] = useState(false);
+
+  useEffect(() => {
+    if (activeTabProp) {
+      if (activeTabProp === 'receipt') setActiveTab('billing');
+      else if (activeTabProp === 'completed') setActiveTab('overview');
+      else setActiveTab(activeTabProp);
+    }
+  }, [activeTabProp]);
   const [reportState, setReportState] = useState<"half_term" | "full_term">("full_term");
 
   // Core Parent states
@@ -22,6 +39,50 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
   const [billing, setBilling] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [school, setSchool] = useState<any>(null);
+  const [cbtHistory, setCbtHistory] = useState<any[]>([]);
+
+  // Nonye AI Parent Advisory State
+  const [advisoryData, setAdvisoryData] = useState<any>(null);
+  const [isLoadingAdvisory, setIsLoadingAdvisory] = useState(false);
+
+  const handleGenerateParentAdvisory = async () => {
+    if (!selectedChild) return;
+    setIsLoadingAdvisory(true);
+    try {
+      const studentBill = billing.find((b) => b.student_id === selectedChild.id);
+      const res = await fetch("/api/ai/parent/performance-advisory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentName: selectedChild.name,
+          classLevel: selectedChild.class_name || "SS 2 Science",
+          termAverage: 78.4,
+          attendanceRate: 97.5,
+          topSubjects: ["General Mathematics (86%)", "Chemistry (82%)", "Biology (79%)"],
+          weakSubjects: ["Physics (58%)"],
+          feeBalance: studentBill?.balance_due ? `₦${studentBill.balance_due.toLocaleString()}` : "₦0.00 (Cleared)"
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAdvisoryData(data.advisory);
+        toast.success("Nonye AI generated your tailored Parent Advisory Briefing!");
+      }
+    } catch (e) {
+      toast.error("Failed to generate parent advisory.");
+    } finally {
+      setIsLoadingAdvisory(false);
+    }
+  };
+
+  // Load CBT session records for selectedChild
+  useEffect(() => {
+    if (selectedChild) {
+      const records = JSON.parse(localStorage.getItem("CS_CBT_SESSION_RECORDS") || "[]");
+      const childRecords = records.filter((r: any) => r.studentId === selectedChild.id);
+      setCbtHistory(childRecords);
+    }
+  }, [selectedChild]);
 
   const handleSimulatedUpgrade = async () => {
     try {
@@ -45,7 +106,10 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
     if (tabKey === "announcements" || tabKey === "settings") return true;
 
     if (tier === "cbt_essentials") {
-      return false; // CBT doesn't have parent ledger or grades sheet
+      return tabKey === "cbt";
+    }
+    if (tier === "cbt_plus_results") {
+      return tabKey === "overview" || tabKey === "cbt";
     }
     if (tier === "financial_ledger") {
       return tabKey === "billing";
@@ -73,7 +137,7 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
       const tier = sch?.subscription_tier || "unified_enterprise";
       let initialTab = "overview";
       if (tier === "cbt_essentials") {
-        initialTab = "announcements";
+        initialTab = "cbt";
       } else if (tier === "financial_ledger") {
         initialTab = "billing";
       }
@@ -142,31 +206,96 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
   return (
     <div className="flex-1 flex flex-col overflow-hidden text-xs">
       {/* Sub-navigation bar */}
-      <div className="border-b border-slate-200 bg-white p-3 shrink-0 flex flex-wrap gap-2 justify-between items-center relative z-10">
-        <div className="flex flex-wrap gap-2">
-          {[
-            { k: "overview", label: "Ward Performance Locker" },
-            { k: "announcements", label: "Campus Communications" },
-            { k: "billing", label: "Financial Accounts Ledger" },
-            { k: "settings", label: "System Settings" }
-          ].map((item) => {
-            const visible = isTabVisible(item.k);
-            return (
+      <div className="border-b border-slate-200 bg-white p-3 shrink-0 flex flex-wrap gap-2 justify-between items-center relative z-20">
+        {(() => {
+          const parentModules = [
+            { k: "overview", label: "Ward Performance Locker", icon: GraduationCap, desc: "Academic report cards, grades & term progress" },
+            { k: "cbt", label: "CBT Examinations Transcript", icon: Award, desc: "Computer based test results & proctor logs" },
+            { k: "announcements", label: "Campus Communications", icon: Mail, desc: "School notices, broadcasts & inbox" },
+            { k: "billing", label: "Financial Accounts Ledger", icon: Landmark, desc: "Fee invoices, tuition receipts & payment records" },
+            { k: "settings", label: "System Settings", icon: Settings, desc: "Account security & notification preferences" }
+          ];
+
+          const availableParentModules = parentModules.map(item => ({
+            ...item,
+            visible: isTabVisible(item.k)
+          }));
+
+          const currentParentModule = parentModules.find(m => m.k === activeTab) || parentModules[0];
+          const CurrentParentIcon = currentParentModule.icon;
+
+          return (
+            <div className="relative">
               <button
-                key={item.k}
-                onClick={() => setActiveTab(item.k)}
-                className={`h-8.5 px-4 rounded-lg font-bold transition text-[11px] flex items-center gap-1.5 ${
-                  activeTab === item.k 
-                    ? "bg-indigo-600 text-white shadow-sm" 
-                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-                }`}
+                type="button"
+                onClick={() => setIsModuleSelectorOpen(!isModuleSelectorOpen)}
+                className="h-9 px-3.5 bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 hover:opacity-95 text-white rounded-xl font-bold text-xs flex items-center gap-2.5 shadow-sm transition cursor-pointer"
               >
-                {!visible && <span className="text-[10px]">🔒</span>}
-                <span>{item.label}</span>
+                <div className="p-1 bg-white/20 rounded-lg shrink-0 flex items-center justify-center">
+                  <CurrentParentIcon className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[8.5px] uppercase tracking-wider text-indigo-100 font-medium leading-none">Active Module</span>
+                  <span className="font-extrabold text-[12px] leading-tight flex items-center gap-1">
+                    {currentParentModule.label}
+                  </span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-emerald-200 transition-transform ml-1 ${isModuleSelectorOpen ? "rotate-180" : ""}`} />
               </button>
-            );
-          })}
-        </div>
+
+              {isModuleSelectorOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setIsModuleSelectorOpen(false)} />
+                  <div className="absolute left-0 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-40 animate-in fade-in slide-in-from-top-2 duration-150 space-y-1">
+                    <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Select Navigation Module</span>
+                      <span className="text-[9.5px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        {parentModules.length} Modules
+                      </span>
+                    </div>
+                    {availableParentModules.map((item) => {
+                      const isSelected = activeTab === item.k;
+                      const ItemIcon = item.icon;
+                      return (
+                        <button
+                          key={item.k}
+                          type="button"
+                          onClick={() => {
+                            setActiveTab(item.k);
+                            setIsModuleSelectorOpen(false);
+                          }}
+                          className={`w-full text-left p-2.5 rounded-xl transition flex items-center gap-3 cursor-pointer ${
+                            isSelected
+                              ? "bg-gradient-to-r from-indigo-600 to-emerald-600 text-white shadow-sm font-bold"
+                              : "hover:bg-slate-50 text-slate-700 border border-transparent hover:border-slate-200"
+                          }`}
+                        >
+                          <div className={`p-2 rounded-lg shrink-0 ${isSelected ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-600"}`}>
+                            <ItemIcon className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[11.5px] font-bold ${isSelected ? "text-white" : "text-slate-900"}`}>
+                                {item.label}
+                              </span>
+                              {!item.visible && <span className="text-[10px]" title="Feature restricted by current school plan">🔒</span>}
+                              {isSelected && <Check className="w-3.5 h-3.5 text-emerald-300 shrink-0" />}
+                            </div>
+                            {item.desc && (
+                              <p className={`text-[10px] truncate mt-0.5 ${isSelected ? "text-indigo-100" : "text-slate-400"}`}>
+                                {item.desc}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Children selector dropdown */}
         <div className="flex gap-2 items-center">
@@ -187,10 +316,18 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
-        
-        {/* -------------- PERFORMANCE WARD LOCKER -------------- */}
-        {activeTab === "overview" && (
+      <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="space-y-5"
+          >
+            {/* -------------- PERFORMANCE WARD LOCKER -------------- */}
+            {activeTab === "overview" && (
           !isTabVisible("overview") ? (
             <UpgradeOverlay 
               title="Ward Performance Locker"
@@ -225,6 +362,91 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* Nonye AI Parent Advisory & Plain-English Translation Card */}
+            <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-emerald-950 text-white rounded-2xl p-5 md:p-6 shadow-xl border border-indigo-800 space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative shrink-0">
+                    <img
+                      src={nonyeAvatar}
+                      alt="Nonye AI"
+                      className="w-11 h-11 rounded-full object-cover border-2 border-emerald-400 shadow-md"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-indigo-950" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-white">Nonye AI Family Advisory for {selectedChild?.name || "Your Child"}</h3>
+                      <span className="bg-emerald-500/30 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                        Plain-English Summary
+                      </span>
+                    </div>
+                    <p className="text-xs text-indigo-200 mt-0.5">
+                      Translates complex numerical broadsheet data into actionable parenting & home study guidance.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {advisoryData && (
+                    <button
+                      onClick={() => speakNonyeVoice(advisoryData.academicSummary || advisoryData.parentGreeting)}
+                      className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Volume2 className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>Listen to Nonye</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={handleGenerateParentAdvisory}
+                    disabled={isLoadingAdvisory}
+                    className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  >
+                    {isLoadingAdvisory ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Brain className="w-3.5 h-3.5" />}
+                    <span>{advisoryData ? "Refresh Advisory" : "Generate Parent Advisory"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {advisoryData && (
+                <div className="space-y-4 pt-3 border-t border-white/10 text-xs">
+                  <p className="text-indigo-100 font-medium leading-relaxed bg-white/5 p-3.5 rounded-xl border border-white/10">
+                    {advisoryData.parentGreeting} {advisoryData.academicSummary}
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-700/40 space-y-1.5">
+                      <h4 className="font-bold text-emerald-300 flex items-center gap-1.5 text-xs">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Strengths to Celebrate at Home:
+                      </h4>
+                      <ul className="space-y-1 text-slate-200 list-disc list-inside">
+                        {advisoryData.celebrationPoints?.map((pt: string, idx: number) => (
+                          <li key={idx}>{pt}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-700/40 space-y-1.5">
+                      <h4 className="font-bold text-indigo-300 flex items-center gap-1.5 text-xs">
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-300" /> Supportive Home Guidance Tips:
+                      </h4>
+                      <ul className="space-y-1 text-slate-200 list-disc list-inside">
+                        {advisoryData.homeSupportTips?.map((tip: string, idx: number) => (
+                          <li key={idx}>{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 text-slate-300">
+                    <span className="font-semibold">Verified Bursary Status:</span>
+                    <span className="font-bold text-emerald-300">{advisoryData.feeStatusNotice}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Electronic Report card visual block */}
@@ -356,38 +578,215 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
                 </div>
 
                 {/* Printable down-loaders */}
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={triggerDownloadPDF} className="h-9 gap-1 text-[11px] font-bold">
-                    <Download className="w-3.5 h-3.5" />
-                    Download PDF Card
+                <div className="flex gap-2 print:hidden">
+                  <Button 
+                    variant="emerald" 
+                    size="sm" 
+                    onClick={() => window.print()} 
+                    className="h-9 gap-1.5 text-[11px] font-black uppercase tracking-wider cursor-pointer shadow-sm"
+                    title="Print or export paperless PDF report card using browser print dialog"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print / Export PDF Report Card
                   </Button>
                 </div>
               </div>
             </div>
+
+            <GradeDistributionChart />
           </div>
+          )
+        )}
+
+        {/* -------------- CBT EXAMINATIONS TRANSCRIPT -------------- */}
+        {activeTab === "cbt" && (
+          !isTabVisible("cbt") ? (
+            <UpgradeOverlay 
+              title="CBT Examinations Transcript"
+              requiredTier="CBT Essentials or Unified Enterprise"
+              description="real-time computerized exam progress monitoring, automatic instant scoring, proctor focus violation alerts, and performance timelines."
+              onUpgrade={handleSimulatedUpgrade}
+            />
+          ) : (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <h3 className="font-display font-semibold cs-text-navy text-sm">Computer-Based Examinations Transcript</h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Track computerized tests taken by <strong className="text-slate-600">{selectedChild?.fullName || selectedChild?.name}</strong>, analyze integrity metrics and view score distributions.</p>
+                </div>
+                {cbtHistory.length > 0 && (
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 uppercase font-mono text-[9px] font-black h-6">
+                    {cbtHistory.length} Sessions Logged
+                  </Badge>
+                )}
+              </div>
+
+              {/* CBT Stats grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white border rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600 shrink-0">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase font-mono block">CBT Average</span>
+                    <strong className="text-slate-800 font-extrabold text-sm block">
+                      {cbtHistory.length > 0 
+                        ? `${Math.round(cbtHistory.reduce((acc, curr) => acc + (curr.score || 0), 0) / cbtHistory.length)}%`
+                        : "0%"
+                      }
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="bg-white border rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600 shrink-0">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase font-mono block">Top Attempt</span>
+                    <strong className="text-emerald-600 font-extrabold text-sm block">
+                      {cbtHistory.length > 0 
+                        ? `${Math.max(...cbtHistory.map(h => h.score || 0))}%`
+                        : "0%"
+                      }
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="bg-white border rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="p-2 bg-blue-50 rounded-lg text-blue-600 shrink-0">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase font-mono block">Total Papers</span>
+                    <strong className="text-slate-800 font-extrabold text-sm block">
+                      {cbtHistory.length} Exams
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="bg-white border rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="p-2 bg-rose-50 rounded-lg text-rose-600 shrink-0">
+                    <ShieldAlert className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase font-mono block">Focus Violations</span>
+                    <strong className="text-slate-800 font-extrabold text-sm block">
+                      {cbtHistory.reduce((acc, curr) => acc + (curr.violations || 0), 0)} flags
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-5">
+                {/* List of sessions table */}
+                <div className="md:col-span-2 cs-card p-5 space-y-4">
+                  <h3 className="font-display font-semibold cs-text-navy text-sm">Evaluation Audit Registry</h3>
+                  
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50 uppercase tracking-wide font-bold text-slate-500 text-[10px]">
+                          <TableHead>Assessment Subject</TableHead>
+                          <TableHead className="text-center">Exam Score</TableHead>
+                          <TableHead className="text-center">Tab-Blurs/Alerts</TableHead>
+                          <TableHead className="text-right">Timestamp</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {cbtHistory.map((h, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-bold cs-text-navy uppercase">{h.examTitle}</TableCell>
+                            <TableCell className="text-center font-mono font-black text-indigo-600">
+                              {h.score}%
+                            </TableCell>
+                            <TableCell className="text-center font-mono font-bold">
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${h.violations > 0 ? "text-amber-600 bg-amber-50" : "text-emerald-600 bg-emerald-50"}`}>
+                                {h.violations} blurs
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-slate-400 text-[10.5px]">
+                              {new Date(h.lastUpdated).toLocaleDateString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {cbtHistory.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center p-8 text-slate-400">
+                              No computerized examinations logged for {selectedChild?.fullName || selectedChild?.name} yet.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Graph chart visualizer */}
+                <div className="cs-card p-5 space-y-4 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-display font-semibold cs-text-navy text-sm">Performance Timeline</h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Exam grade distribution timeline over computerized tests.</p>
+                  </div>
+
+                  {cbtHistory.length > 0 ? (
+                    <div className="w-full h-[220px] bg-slate-50 border border-slate-150 rounded-xl p-2.5 flex flex-col justify-between">
+                      <div className="flex-1 min-h-0 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={cbtHistory.map(h => ({
+                              ...h,
+                              shortName: h.examTitle.length > 15 ? h.examTitle.substring(0, 13) + "..." : h.examTitle,
+                              score: h.score || 0
+                            }))}
+                            margin={{ top: 10, right: 10, left: -30, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                            <XAxis 
+                              dataKey="shortName" 
+                              stroke="#94a3b8" 
+                              fontSize={8} 
+                              tickLine={false}
+                              fontFamily="Montserrat, sans-serif"
+                              fontWeight={600}
+                            />
+                            <YAxis 
+                              stroke="#94a3b8" 
+                              fontSize={8} 
+                              tickLine={false}
+                              domain={[0, 100]}
+                              fontFamily="monospace"
+                            />
+                            <RechartsTooltip />
+                            <Bar dataKey="score" radius={[4, 4, 0, 0]} maxBarSize={20}>
+                              {cbtHistory.map((entry, index) => {
+                                const scoreVal = entry.score || 0;
+                                let barColor = "#4f46e5";
+                                if (scoreVal >= 80) barColor = "#059669";
+                                else if (scoreVal < 50) barColor = "#e11d48";
+                                return <Cell key={`cell-${index}`} fill={barColor} />;
+                              })}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl h-[220px] flex flex-col items-center justify-center p-4 text-center text-slate-400">
+                      <Activity className="w-8 h-8 text-slate-300 mb-2 animate-pulse" />
+                      <span className="text-[11px]">No graph metrics available</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )
         )}
 
         {/* -------------- COMMUNICATIONS ANN -------------- */}
         {activeTab === "announcements" && (
-          <div className="space-y-4 max-w-2xl animate-in fade-in duration-200">
-            <h3 className="font-display font-semibold cs-text-navy text-sm">Official Platform Communications</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">Read emergency notices, newsletter outlines, or school-wide alerts.</p>
-            
-            <div className="space-y-3.5">
-              {messages.filter((m: any) => m.message_type === "announcement" || m.message_type === "broadcast").map((m, idx) => (
-                <div key={idx} className="bg-white border rounded-xl p-4 shadow-sm border-l-4 border-indigo-500 space-y-2">
-                  <div className="flex justify-between text-[10px]">
-                    <span className="font-black uppercase tracking-wider text-indigo-600 block">Universal Broadcast Alert</span>
-                    <span className="font-mono text-slate-400 block">{new Date(m.created_at || "").toLocaleDateString()}</span>
-                  </div>
-                  <p className="text-[11.5px] leading-relaxed text-slate-800">{m.content}</p>
-                </div>
-              ))}
-              {messages.length === 0 && (
-                <div className="text-center py-10 text-slate-400 bg-white border rounded-xl">No active announcements.</div>
-              )}
-            </div>
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <CommunicationHub currentProfile={currentProfile} />
           </div>
         )}
 
@@ -405,7 +804,19 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
             
             {/* Detailed school fees structure breakdown */}
             <div className="lg:col-span-2 cs-card p-5 space-y-4">
-              <h3 className="font-display font-semibold cs-text-navy text-sm">Active Invoices Breakdown</h3>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                <h3 className="font-display font-semibold cs-text-navy text-sm">Active Invoices Breakdown</h3>
+                <Button 
+                  variant="emerald" 
+                  size="sm" 
+                  onClick={() => window.print()} 
+                  className="h-8 gap-1.5 text-[10.5px] font-black uppercase tracking-wider cursor-pointer shadow-sm print:hidden"
+                  title="Print or export paperless PDF statement using browser print dialog"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print / Export PDF Statement
+                </Button>
+              </div>
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -489,6 +900,8 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
             />
           </div>
         )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

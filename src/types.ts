@@ -20,6 +20,19 @@ export interface UserProfile {
   classCohort?: string;      // e.g. "Class A"
   parentId?: string;        // If Student
   studentIds?: string[];     // If Parent
+  
+  // Security Credentials & Access Settings
+  password?: string;         // Login password / passcode
+  status?: 'active' | 'paused' | 'suspended'; // Account status
+  last_login?: string;       // Timestamp of last active login
+  created_at?: string;       // Account provision timestamp
+  forcePasswordChange?: boolean; // Prompt password change on next login
+  permissions?: {
+    canEditGrades?: boolean;
+    canPublishCbt?: boolean;
+    canAccessBursary?: boolean;
+    canSendBroadcasts?: boolean;
+  };
 }
 
 // CBT Exam Engine types
@@ -37,7 +50,12 @@ export interface CbtExam {
   subject: string;
   durationMinutes: number;
   questions: CbtQuestion[];
-  published: boolean; // True means results are visible to students (subject to global published check)
+  published: boolean; // True means results/exam published to students
+  publishedToStudents?: boolean; // Dedicated status flag for exam active availability
+  uploadedAt?: string; // ISO or formatted upload timestamp
+  uploadedBy?: string; // Teacher or Admin who uploaded
+  targetClass?: string; // e.g. "SS 2A", "SS 1B", "JSS 3", "All Classes"
+  uploadSource?: 'excel' | 'manual' | 'ai';
 }
 
 export interface CbtSessionState {
@@ -79,6 +97,34 @@ export interface GradeRecord {
 }
 
 // Financial Ledgers & Billing
+export type LedgerSector = 
+  | 'Tuition & Academic Fees'
+  | 'Infrastructure & Maintenance'
+  | 'ICT & CBT Engine Infrastructure'
+  | 'Staff Payroll & Allowances'
+  | 'Transport & Fleet Operations'
+  | 'Stationery & Exam Supplies'
+  | 'Canteen, Events & Co-Curricular';
+
+export type LedgerType = 'INFLOW' | 'OUTFLOW';
+export type LedgerStatus = 'RECONCILED' | 'PENDING_APPROVAL' | 'FLAGGED';
+
+export interface FinancialLedgerEntry {
+  id: string;
+  date: string;
+  sector: LedgerSector;
+  type: LedgerType;
+  title: string;
+  amount: number;
+  payerOrPayee: string;
+  paymentMethod: string;
+  status: LedgerStatus;
+  reference: string;
+  receiptNumber: string;
+  notes?: string;
+  approvedBy?: string;
+}
+
 export interface BillingRecord {
   id: string;
   parentId: string;
@@ -105,6 +151,41 @@ export interface PaymentHistoryItem {
   description: string;
 }
 
+export type AuditActionType = 'CREATE' | 'EDIT' | 'DELETE' | 'PAUSE' | 'RESUME' | 'BILLING' | 'SECURITY';
+export type AuditCategory = 'STUDENT_PROFILE' | 'BILLING_RECORD' | 'ACCOUNT_STATUS' | 'STAFF_PROFILE' | 'SYSTEM_SECURITY';
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  actorName: string;
+  actorRole: string;
+  actionType: AuditActionType;
+  targetCategory: AuditCategory;
+  targetName: string;
+  targetId: string;
+  details: string;
+  ipAddress?: string;
+}
+
+export type CbtAuditActionType = 'EXAM_PUBLISH' | 'EXAM_UNPUBLISH' | 'EXAM_UPLOAD' | 'GRADE_SUBMIT' | 'GRADE_UPDATE' | 'EXAM_DELETE';
+
+export interface CbtAuditLogEntry {
+  id: string;
+  timestamp: string; // ISO format e.g. 2026-07-25T15:16:37.000Z
+  userId: string; // e.g. CS-TCH-001 or User ID / Username
+  userName: string; // e.g. Mrs. Folasade Adebayo
+  userRole: string; // e.g. Subject Instructor / Teacher
+  actionType: CbtAuditActionType;
+  examId: string;
+  examTitle: string;
+  subject: string;
+  targetStudentId?: string;
+  targetStudentName?: string;
+  scoreSubmitted?: number;
+  details: string;
+  ipAddress?: string;
+}
+
 export type NotificationCategory = 'grade_publication' | 'upcoming_exam' | 'payment_deadline' | 'system';
 
 export interface Notification {
@@ -118,4 +199,155 @@ export interface Notification {
   targetUserId?: string;
   actionTab?: string; // Tab to switch to when clicked (e.g. 'result_checker', 'cbt_exam_engine', 'bursar_console', 'parent_portal')
 }
+
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
+
+export interface StudentAttendanceRecord {
+  id: string;
+  admissionNo: string;
+  fullName: string;
+  gender: 'M' | 'F';
+  status: AttendanceStatus;
+  note?: string;
+  timeIn?: string;
+}
+
+export interface HomeroomDailySession {
+  id: string;
+  schoolId: string;
+  classArm: string;
+  sessionType: 'morning' | 'afternoon';
+  date: string;
+  recordedByTeacherId: string;
+  recordedByTeacherName: string;
+  records: StudentAttendanceRecord[];
+  summary: {
+    total: number;
+    present: number;
+    absent: number;
+    late: number;
+    excused: number;
+    rate: number;
+  };
+  savedAt: string;
+}
+
+export interface SubjectStudentAttendance {
+  studentId: string;
+  admissionNo: string;
+  studentName: string;
+  gender: 'M' | 'F';
+  status: 'present' | 'absent' | 'truant_bunked' | 'late' | 'excused';
+  participationGrade?: 'A' | 'B' | 'C' | 'D';
+  note?: string;
+}
+
+export interface SubjectLessonTeachingLog {
+  id: string;
+  schoolId: string;
+  classArm: string;
+  subjectName: string;
+  teacherId: string;
+  teacherName: string;
+  periodNumber: number;
+  periodTime: string;
+  date: string;
+  topicTaught: string;
+  subTopic?: string;
+  classDiarySummary: string;
+  homeworkAssigned?: string;
+  attendance: SubjectStudentAttendance[];
+  lessonStatus: 'COMPLETED' | 'SUBSTITUTE_TAUGHT' | 'POSTPONED' | 'PRACTICAL_SESSION';
+  recordedAt: string;
+}
+
+export type StaffAttendanceStatus = 'ON_TIME' | 'LATE' | 'ABSENT' | 'ON_LEAVE' | 'OFFICIAL_DUTY';
+
+export interface StaffDailyClockInRecord {
+  id: string;
+  staffId: string;
+  teacherId: string;
+  teacherName: string;
+  role: string;
+  department: string;
+  date: string;
+  clockInTime: string;
+  clockOutTime?: string;
+  status: StaffAttendanceStatus;
+  lateMinutes?: number;
+  dutyRole: string;
+  loginMethod: 'PORTAL_AUTO_CHECKIN' | 'ADMIN_MANUAL' | 'BIOMETRIC_SIM';
+  note?: string;
+  recordedAt: string;
+}
+
+export interface SchoolAttendanceRegistryEntry {
+  id: string;
+  schoolId: string;
+  classArm: string;
+  sessionType: 'morning' | 'afternoon';
+  academicSession: string;
+  academicTerm: string;
+  date: string;
+  recordedByTeacherId: string;
+  recordedByTeacherName: string;
+  totalStudents: number;
+  presentCount: number;
+  absentCount: number;
+  lateCount: number;
+  excusedCount: number;
+  attendanceRate: number;
+  records: StudentAttendanceRecord[];
+  savedAt: string;
+}
+
+export interface Assignment {
+  id: string;
+  title: string;
+  subject: string;
+  topic: string;
+  classCohort: string;
+  assignedByTeacherId: string;
+  assignedByTeacherName: string;
+  assignedDate: string;
+  dueDate: string;
+  dueTime?: string;
+  description: string;
+  instructions: string[];
+  maxMarks: number;
+  attachmentName?: string;
+  socraticContext?: string;
+  status: 'active' | 'closed' | 'draft';
+}
+
+export type StudentAssignmentProgress = 'pending' | 'in_progress' | 'submitted';
+
+export interface AssignmentSubmission {
+  id: string;
+  assignmentId: string;
+  studentId: string;
+  studentName: string;
+  classCohort: string;
+  submittedAt?: string;
+  status: 'pending_review' | 'graded' | 'late' | 'not_submitted' | 'in_progress';
+  progressStatus?: StudentAssignmentProgress;
+  solutionText: string;
+  studentNotes?: string;
+  gradeScore?: number;
+  teacherFeedback?: string;
+  socraticDialogueCount?: number;
+  updatedAt?: string;
+}
+
+export interface SocraticMessage {
+  id: string;
+  sender: 'student' | 'nonye';
+  text: string;
+  timestamp: string;
+  guidingQuestion?: string;
+  formulaHint?: string;
+}
+
+export { getNazieePermissions } from './lib/nazieePermissions';
+export type { NazieePermissions, NazieeSubscriptionTier } from './lib/nazieePermissions';
 

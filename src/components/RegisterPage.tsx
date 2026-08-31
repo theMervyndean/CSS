@@ -26,10 +26,11 @@ const KENYA_COUNTIES = ["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Kiambu", "Uas
 const OTHER_REGIONS = ["Mainland Region", "Administrative District", "Central Sector", "Northern Territory"];
 
 const PLAN_INFO: Record<string, { name: string; desc: string; prices: Record<string, number> }> = {
-  cbt_essentials: { name: "CBT Essentials", desc: "Computer-based testing engine with offline resilency cache.", prices: { "1_term": 40000, "2_terms": 70000, "full_session": 110000 } },
-  digital_reports: { name: "Digital Reports", desc: "Continuous Assessment matrices + report generators.", prices: { "1_term": 50000, "2_terms": 90000, "full_session": 140000 } },
-  financial_ledger: { name: "Financial Ledger", desc: "School fee tracking, instant Debt Lock on report check.", prices: { "1_term": 40000, "2_terms": 70000, "full_session": 110000 } },
-  unified_enterprise: { name: "Unified Enterprise", desc: "Complete system suite (CBT, Reports & Financials).", prices: { "full_session": 200000 } }
+  cbt_essentials: { name: "CBT Starter", desc: "Exams, AI Proctoring & Auto-Grading (Results strictly withheld from Parents/Students).", prices: { "1_term": 40000, "2_terms": 70000, "full_session": 110000 } },
+  cbt_plus_results: { name: "CBT Pro", desc: "Online Testing + Terminal Report Card Generation, Ledger Publishing & Parent Dispatch.", prices: { "1_term": 65000, "2_terms": 120000, "full_session": 175000 } },
+  financial_ledger: { name: "Bursary & Financial Ledger", desc: "School fee tracking, tuition receipt tracking & debt blockade.", prices: { "1_term": 40000, "2_terms": 70000, "full_session": 110000 } },
+  digital_reports: { name: "Digital Reports (Legacy)", desc: "Terminal CA matrices, gradebooks & student result portal.", prices: { "1_term": 50000, "2_terms": 90000, "full_session": 140000 } },
+  unified_enterprise: { name: "Unified Enterprise", desc: "Complete system suite (CBT Starter, CBT Pro, Bursary & AI Tools).", prices: { "full_session": 200000 } }
 };
 
 const INSTITUTIONAL_ARMS = [

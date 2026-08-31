@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Clock, CheckCircle, AlertTriangle, ShieldCheck, Upload, HelpCircle, Receipt } from "lucide-react";
+import { Clock, CheckCircle, AlertTriangle, ShieldCheck, Upload, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/BrandLogo";
 
@@ -59,38 +59,8 @@ export function PendingVerification({ onLogout, currentProfile }: any) {
       toast.success("School Verified! Entrance cleared.");
       window.location.reload();
     } else {
-      toast.info("Verification status is still pending. Try switching roles to Super Admin using the menu to approve your receipt.");
+      toast.info("Verification status is still pending. Institutional compliance verification is underway.");
     }
-  };
-
-  const handleSimulateInstantClearance = () => {
-    setLoading(true);
-    setTimeout(() => {
-      const sch = { ...school, verification_status: "active" };
-      localStorage.setItem("CS_SCHOOL", JSON.stringify(sch));
-      setSchool(sch);
-      
-      const receipts = JSON.parse(localStorage.getItem("CS_RECEIPTS") || "[]");
-      if (receipts.length > 0) {
-        receipts[0].status = "approved";
-      } else {
-        receipts.unshift({
-          id: "rcp-instant",
-          tier: "unified_enterprise",
-          duration: "full_session",
-          amount_ngn: 200000,
-          status: "approved",
-          created_at: new Date().toISOString(),
-          submitted_by: currentProfile.email || "admin@school.edu",
-          whatsapp_code: "994503"
-        });
-      }
-      localStorage.setItem("CS_RECEIPTS", JSON.stringify(receipts));
-      
-      toast.success("Instant Clearance Secured! Database Tenant Provisioned.");
-      setLoading(false);
-      window.location.reload();
-    }, 800);
   };
 
   const isPaidPending = school?.verification_status === "paid_pending_verification";
@@ -176,9 +146,9 @@ export function PendingVerification({ onLogout, currentProfile }: any) {
           <div className="flex items-start gap-3 p-4 bg-indigo-50 border border-indigo-200/50 rounded-xl text-xs text-indigo-850">
             <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
             <div>
-              <strong className="text-indigo-950 block text-[11px] font-black uppercase tracking-wide">Developer Sandbox Notice</strong>
+              <strong className="text-indigo-950 block text-[11px] font-black uppercase tracking-wide">Institutional Verification Notice</strong>
               <p className="mt-0.5 leading-relaxed text-[11px]">
-                You are testing the Corner Streams multi-tenant register pipeline. Choose to bypass verification instantly with the sandbox tool inside the right checkout area or use the top simulator menu to log in as a <span className="font-extrabold text-indigo-950">Super Admin (David Macaulay)</span> to approve this holding request.
+                Your school registration and accreditation credentials are under standard security verification. Our compliance team verifies institutional payment slips within 24 business hours.
               </p>
             </div>
           </div>
@@ -187,8 +157,8 @@ export function PendingVerification({ onLogout, currentProfile }: any) {
         {/* Right column holding the upload interface card or checkout feedback */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xl space-y-5 relative">
           <div className="space-y-1 border-b border-slate-100 pb-3">
-            <h3 className="font-sans font-black text-xs text-indigo-950 uppercase tracking-wider">Onboarding Clearence Gate</h3>
-            <p className="text-[10px] text-slate-400">Deliver bank invoice receipt or trigger sandbox bypass to unlock your database.</p>
+            <h3 className="font-sans font-black text-xs text-indigo-950 uppercase tracking-wider">Onboarding Clearance Gate</h3>
+            <p className="text-[10px] text-slate-400">Deliver bank invoice receipt to activate your institutional database.</p>
           </div>
 
           <div className="space-y-3.5 text-xs">
@@ -236,23 +206,6 @@ export function PendingVerification({ onLogout, currentProfile }: any) {
               onClick={handleReload}
             >
               Check Clearence Activation Status
-            </Button>
-          </div>
-
-          {/* Sandbox Overrides Section inside Holding Area */}
-          <div className="border-t border-slate-100 pt-4 mt-2 space-y-2">
-            <div className="flex items-center gap-1 text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">
-              <HelpCircle size={10} className="animate-bounce" />
-              <span>Developer Fast Bypass Console</span>
-            </div>
-            
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleSimulateInstantClearance}
-              className="w-full btn-emerald bg-emerald-600/10 text-emerald-800 border-2 border-emerald-600/20 hover:bg-emerald-600/20 text-[9px] font-black uppercase tracking-wider"
-            >
-              Simulate Instant Super Admin Approval ✓
             </Button>
           </div>
         </div>

@@ -14,10 +14,16 @@ import {
   Clock, Send, Smartphone, ShieldCheck, ChevronRight, UserCheck, 
   HelpCircle as HelpIcon, Coins, CalendarDays, ExternalLink, Activity,
   Settings, LogOut, CheckCircle2, X, MessageSquare, PhoneCall, BarChart3, Menu,
-  UserPlus, Calendar, Shield, CreditCard, Sparkles, BookOpen
+  UserPlus, Calendar, Shield, CreditCard, Sparkles, BookOpen, GraduationCap
 } from "lucide-react";
 import { toast } from "sonner";
 import SettingsPanel from "@/components/SettingsPanel";
+import AcademicBroadsheetVault from "@/components/AcademicBroadsheetVault";
+import CommunicationHub from "@/components/CommunicationHub";
+import { StudentResultDossier } from "@/components/StudentResultDossier";
+import DynamicGreeting from "@/components/DynamicGreeting";
+import SecureActionDialog from "@/components/SecureActionDialog";
+import { logAdminActivity } from "@/utils/adminAuditLogger";
 
 // Custom Dropdown matching the Corner Streams specialized UI guidelines
 interface CustomDropdownProps {
@@ -105,8 +111,8 @@ export function SuperAdminDashboard({
   isMobileMenuOpen?: boolean,
   setIsMobileMenuOpen?: (open: boolean) => void
 }) {
-  // Navigation: Schools, Users, Leads, Activation, Receipts, Messages, Analytics, Settings, Website Landing Page
-  const [activeTab, setActiveTab] = useState<"schools" | "users" | "leads" | "activation" | "receipts" | "messages" | "analytics" | "settings" | "landing_page">("schools");
+  // Navigation: Schools, Users, Broadsheets, Result Dossiers, Leads, Activation, Receipts, Messages, Analytics, Settings, Website Landing Page
+  const [activeTab, setActiveTab] = useState<"schools" | "users" | "broadsheets" | "result_dossiers" | "leads" | "activation" | "receipts" | "messages" | "analytics" | "settings" | "landing_page">("schools");
   const [localIsMobileMenuOpen, localSetIsMobileMenuOpen] = useState(false);
   const isMobileMenuOpen = propIsMobileMenuOpen !== undefined ? propIsMobileMenuOpen : localIsMobileMenuOpen;
   const setIsMobileMenuOpen = propSetIsMobileMenuOpen !== undefined ? propSetIsMobileMenuOpen : localSetIsMobileMenuOpen;
@@ -150,6 +156,14 @@ export function SuperAdminDashboard({
   });
 
   const [editSchoolDetails, setEditSchoolDetails] = useState<any | null>(null);
+  
+  // Secure Action Kill-Switch Dialog State
+  const [secureLockDialogTarget, setSecureLockDialogTarget] = useState<{
+    isOpen: boolean;
+    schoolId: string;
+    schoolName: string;
+    currentVal: boolean;
+  } | null>(null);
 
   // Announcement broad-caster console
   const [announcementContent, setAnnouncementContent] = useState("");
@@ -488,7 +502,42 @@ export function SuperAdminDashboard({
       return s;
     });
     setSchools(updatedSchools);
-    toast.warning(`System lock updated for that node.`);
+    const targetSchool = schools.find(s => s.id === schoolId);
+    const schoolName = targetSchool?.name || 'School Node';
+
+    if (!currentVal) {
+      toast.error(`Institutional Kill-Switch ACTIVATED. System lock enforced.`);
+      logAdminActivity({
+        actionType: 'kill_switch',
+        actionTitle: 'Institutional Kill-Switch Engaged',
+        severity: 'critical',
+        performedBy: {
+          name: currentProfile?.fullName || 'Super Administrator',
+          role: 'Super_Admin',
+          email: currentProfile?.email
+        },
+        targetResource: `${schoolName} (Node ID: ${schoolId})`,
+        details: `Instantly locked out student/teacher portal sessions and froze all active CBT/broadsheet modification channels.`,
+        authMethod: 'super_admin_override',
+        status: 'executed'
+      });
+    } else {
+      toast.success(`Institutional access RESTORED successfully.`);
+      logAdminActivity({
+        actionType: 'kill_switch',
+        actionTitle: 'Institutional Kill-Switch Deactivated',
+        severity: 'high',
+        performedBy: {
+          name: currentProfile?.fullName || 'Super Administrator',
+          role: 'Super_Admin',
+          email: currentProfile?.email
+        },
+        targetResource: `${schoolName} (Node ID: ${schoolId})`,
+        details: `Restored full system and database access for all teachers, learners, and parents.`,
+        authMethod: 'super_admin_override',
+        status: 'executed'
+      });
+    }
   };
 
   // Add sub-admins
@@ -579,6 +628,8 @@ export function SuperAdminDashboard({
           {[
             { id: "schools", label: "Schools Grid", icon: Landmark, count: schools.length },
             { id: "users", label: "Users Drilldown", icon: Users, count: schools.reduce((acc, curr) => acc + (curr.students_count || 0), 0) },
+            { id: "broadsheets", label: "Academic Broadsheet Vault", icon: BookOpen },
+            { id: "result_dossiers", label: "Student Result Dossiers", icon: GraduationCap },
             { id: "leads", label: "Landing Page Leads", icon: MessageSquare, count: leads.filter(l => !l.resolved).length },
             { id: "activation", label: "Activation Keys", icon: KeyRound, count: schools.filter(s => s.verification_status !== "active").length },
             { id: "receipts", label: "Active Receipts", icon: CreditCard, count: receipts.filter(r => r.status === "pending").length },
@@ -635,6 +686,14 @@ export function SuperAdminDashboard({
       {/* PRIMARY WORKSPACE */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-0">
         
+        {/* DYNAMIC GREETING HERO BANNER */}
+        <DynamicGreeting 
+          userProfile={currentProfile || { fullName: 'Mervyndean Hilary', role: 'Super_Admin', id: 'u-super-1', username: 'SUPERADMIN', photoUrl: '' }}
+          schoolName="Corner Streams Master Global Suite"
+          activeTab={activeTab}
+          className="mb-5"
+        />
+
         {/* TOP STATUS RIBBON */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4 mb-6 gap-3">
           <div>
@@ -642,6 +701,8 @@ export function SuperAdminDashboard({
             <h1 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight leading-none mt-1">
               {activeTab === "schools" && "Schools Directory"}
               {activeTab === "users" && "Users & Campus Drilldown"}
+              {activeTab === "broadsheets" && "Academic Broadsheet Vault"}
+              {activeTab === "result_dossiers" && "Student Result Dossiers & Academic History"}
               {activeTab === "leads" && "Website Landing Page Leads"}
               {activeTab === "activation" && "WhatsApp Verification Codes"}
               {activeTab === "receipts" && "Receipts & Active Sessions"}
@@ -746,7 +807,12 @@ export function SuperAdminDashboard({
                           Edit
                         </button>
                         <button
-                          onClick={() => handleToggleSchoolLock(school.id, school.kill_switch)}
+                          onClick={() => setSecureLockDialogTarget({
+                            isOpen: true,
+                            schoolId: school.id,
+                            schoolName: school.name,
+                            currentVal: Boolean(school.kill_switch)
+                          })}
                           className={`px-2 py-1 rounded-lg font-bold text-white transition-colors cursor-pointer ${school.kill_switch ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-500 hover:bg-rose-600'}`}
                         >
                           {school.kill_switch ? "Unlock" : "Lock"}
@@ -803,7 +869,21 @@ export function SuperAdminDashboard({
           </div>
         )}
 
-        {/* ==================== 3. WEBSITE LANDING PAGE LEADS FEED ==================== */}
+        {/* ==================== 3. ACADEMIC BROADSHEET VAULT ==================== */}
+        {activeTab === "broadsheets" && (
+          <div className="space-y-6">
+            <AcademicBroadsheetVault currentProfile={currentProfile} />
+          </div>
+        )}
+
+        {/* ==================== 3.5 STUDENT RESULT DOSSIERS ==================== */}
+        {activeTab === "result_dossiers" && (
+          <div className="space-y-6">
+            <StudentResultDossier currentProfile={currentProfile} />
+          </div>
+        )}
+
+        {/* ==================== 4. WEBSITE LANDING PAGE LEADS FEED ==================== */}
         {activeTab === "leads" && (
           <div className="space-y-6">
             <div className="bg-indigo-50 border border-indigo-150 rounded-xl p-4 text-xs font-semibold text-indigo-900 leading-normal flex items-start gap-2.5">
@@ -1068,57 +1148,10 @@ export function SuperAdminDashboard({
           </div>
         )}
 
-        {/* ==================== 6. PLATFORM BROADCASTING ==================== */}
+        {/* ==================== 6. PLATFORM BROADCASTING & MESSAGES ==================== */}
         {activeTab === "messages" && (
-          <div className="max-w-2xl mx-auto space-y-6">
-            <div className="cs-card p-6 space-y-4">
-              <div className="flex items-start gap-3.5 border-b border-slate-100 pb-4">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-indigo-600 to-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
-                  <Megaphone className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-indigo-950 text-base">Platform Broadcast Console</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Publish alerts, system downtime notices, or business updates across every client dashboard.</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {/* Target select using custom select */}
-                <CustomDropdown
-                  label="Target Audience Group"
-                  value={announcementTarget}
-                  onChange={setAnnouncementTarget}
-                  options={[
-                    { value: "all", label: "Universal (All Campus Networks)" },
-                    { value: "admins", label: "School Principals & Admins Only" },
-                    { value: "teachers", label: "Teachers Only" }
-                  ]}
-                />
-
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] text-indigo-900 font-bold block uppercase tracking-wider">Announcement Statement Message</Label>
-                  <textarea
-                    value={announcementContent}
-                    onChange={(e) => setAnnouncementContent(e.target.value)}
-                    placeholder="Write platform broadcast update directive..."
-                    rows={5}
-                    className="w-full rounded-xl border border-slate-200 p-3.5 text-xs bg-slate-50 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-600 focus:bg-white leading-relaxed font-semibold"
-                  />
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold px-1">
-                    <span>Target: {announcementTarget.toUpperCase()}</span>
-                    <span>Max: 1000 characters</span>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleTransmitBroadcast}
-                  disabled={!announcementContent.trim()}
-                  className="w-full h-11 justify-center gap-2 bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 text-white hover:opacity-95 rounded-xl font-extrabold text-xs shadow-md transition-all cursor-pointer"
-                >
-                  <Send className="w-4 h-4" /> Transmit Universal Broadcast
-                </Button>
-              </div>
-            </div>
+          <div className="space-y-6">
+            <CommunicationHub currentProfile={currentProfile} />
           </div>
         )}
 
@@ -1259,7 +1292,7 @@ export function SuperAdminDashboard({
                 currentUserProfile={currentProfile}
                 theme={(theme || "light") as any}
                 setTheme={setTheme || (() => {})}
-                activeFont={activeFont || "montserrat"}
+                activeFont={activeFont || "poppins"}
                 setActiveFont={setActiveFont || (() => {})}
               />
             </div>
@@ -1350,6 +1383,40 @@ export function SuperAdminDashboard({
                   Subscription Duration: <strong>{selectedSchoolDetails.subscription_duration?.replace(/_/g, " ").toUpperCase() || "FULL SESSION"}</strong>. Expiry set to <strong>{selectedSchoolDetails.subscription_expires_at ? new Date(selectedSchoolDetails.subscription_expires_at).toLocaleDateString() : "Never"}</strong>.
                 </p>
               </div>
+
+              <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                <CustomDropdown
+                  label="Update Active License Tier Package"
+                  value={selectedSchoolDetails.subscription_tier || "unified_enterprise"}
+                  onChange={(val) => {
+                    const updated = { ...selectedSchoolDetails, subscription_tier: val };
+                    setSelectedSchoolDetails(updated);
+                    const allSchools = JSON.parse(localStorage.getItem("CS_SCHOOLS_LIST") || "[]");
+                    const idx = allSchools.findIndex((s: any) => s.id === selectedSchoolDetails.id);
+                    if (idx !== -1) {
+                      allSchools[idx].subscription_tier = val;
+                      localStorage.setItem("CS_SCHOOLS_LIST", JSON.stringify(allSchools));
+                    }
+                    // Also update active school if it's current school
+                    const activeSch = JSON.parse(localStorage.getItem("CS_SCHOOL") || "{}");
+                    if (activeSch.id === selectedSchoolDetails.id) {
+                      activeSch.subscription_tier = val;
+                      localStorage.setItem("CS_SCHOOL", JSON.stringify(activeSch));
+                      window.dispatchEvent(new Event("cs_school_updated"));
+                      window.dispatchEvent(new Event("storage"));
+                    }
+                    toast.success(`School tier updated to ${val.replace(/_/g, " ").toUpperCase()}`);
+                    loadData();
+                  }}
+                  options={[
+                    { value: "unified_enterprise", label: "Unified Enterprise (Full Suite)" },
+                    { value: "cbt_plus_results", label: "CBT Pro (Exams + Terminal Reports)" },
+                    { value: "cbt_essentials", label: "CBT Starter (Exams Only)" },
+                    { value: "financial_ledger", label: "Bursary & Financial Ledger" },
+                    { value: "digital_reports", label: "Digital Reports Stream (Legacy)" }
+                  ]}
+                />
+              </div>
             </div>
           )}
 
@@ -1422,10 +1489,11 @@ export function SuperAdminDashboard({
               value={newSchool.subscription_tier}
               onChange={(val) => setNewSchool({ ...newSchool, subscription_tier: val })}
               options={[
-                { value: "unified_enterprise", label: "Unified Enterprise (Full Access)" },
-                { value: "digital_reports", label: "Digital Reports (QR Cards)" },
-                { value: "financial_ledger", label: "Financial Ledger" },
-                { value: "cbt_essentials", label: "CBT Essentials (Exams)" }
+                { value: "unified_enterprise", label: "Unified Enterprise (Full Suite)" },
+                { value: "cbt_plus_results", label: "CBT Pro (Exams + Terminal Reports)" },
+                { value: "cbt_essentials", label: "CBT Starter (Exams Only)" },
+                { value: "financial_ledger", label: "Bursary & Financial Ledger" },
+                { value: "digital_reports", label: "Digital Reports Stream (Legacy)" }
               ]}
             />
 
@@ -1620,6 +1688,53 @@ export function SuperAdminDashboard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* SECURE ACTION DIALOG FOR KILL-SWITCH / UNLOCK */}
+      {secureLockDialogTarget && (
+        <SecureActionDialog
+          isOpen={secureLockDialogTarget.isOpen}
+          onClose={() => setSecureLockDialogTarget(null)}
+          title={
+            secureLockDialogTarget.currentVal
+              ? "Deactivate Kill-Switch & Restore Node Access"
+              : "Activate Institutional Kill-Switch"
+          }
+          description={
+            secureLockDialogTarget.currentVal
+              ? `You are about to restore full operational portal and database access for ${secureLockDialogTarget.schoolName}.`
+              : `You are about to engage the master kill-switch for ${secureLockDialogTarget.schoolName}. All teachers, students, parents, and administrative staff will be instantly locked out of their portals.`
+          }
+          targetName={secureLockDialogTarget.schoolName}
+          severity={secureLockDialogTarget.currentVal ? "warning" : "kill_switch"}
+          confirmButtonText={
+            secureLockDialogTarget.currentVal
+              ? "Confirm & Unlock School Portal"
+              : "Authorize & Activate Kill-Switch"
+          }
+          consequences={
+            secureLockDialogTarget.currentVal
+              ? [
+                  "Restores instant dashboard access to all enrolled students and teachers.",
+                  "Re-enables broadsheet exports and CBT test-taking capabilities.",
+                  "Re-activates parent payment gateways and receipt generators."
+                ]
+              : [
+                  "Immediately terminates all active teacher and student login sessions for this school node.",
+                  "Blocks continuous assessment uploads and live broadsheet modifications.",
+                  "Freezes CBT exam question delivery and student response submission channels.",
+                  "Displays a statutory compliance/lock notice upon any login attempt."
+                ]
+          }
+          requirePassword={true}
+          userEmailOrName={currentProfile?.email || "Super Administrator"}
+          onConfirm={() => {
+            handleToggleSchoolLock(
+              secureLockDialogTarget.schoolId,
+              secureLockDialogTarget.currentVal
+            );
+          }}
+        />
+      )}
 
     </div>
   );

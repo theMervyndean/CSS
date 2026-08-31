@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Core Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isDocOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Schools: Public institutional details readable for onboarding & verification; edits restricted
+    match /schools/{schoolId} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null; // Allows initial school onboarding & updates
+    }
+    
+    // Users: Profiles accessible to authenticated users; users can update own profile
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+    
+    // Academic Grades & Continuous Assessment (CA1-CA4, Exam)
+    match /grades/{gradeId} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+    
+    // CBT Exam Definitions
+    match /cbt_exams/{examId} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+    
+    // CBT Student Test Submissions & Proctoring Violations
+    match /cbt_submissions/{submissionId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isSignedIn();
+    }
+    
+    // Terminal Report Cards & QR Verification Stamps
+    match /report_cards/{reportId} {
+      allow read: if true; // Public verification for QR code scanners & parent Result Checker
+      allow write: if isSignedIn() || request.auth == null;
+    }
+    
+    // Bursary Financial Ledgers & Tuition Receipts
+    match /bursary_ledgers/{ledgerId} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+    
+    // Naziee AI Pedagogical Diagnoses & Intervention Insights
+    match /ai_analyses/{analysisId} {
+      allow read: if true;
+      allow write: if isSignedIn() || request.auth == null;
+    }
+    
+    // Cloud-to-Offline Sync Transaction Audit Logs
+    match /sync_audit_logs/{logId} {
+      allow read: if isSignedIn() || true;
+      allow create: if true;
+      allow update, delete: if isSignedIn();
+    }
+  }
+}

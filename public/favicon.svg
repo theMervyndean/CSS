@@ -1,0 +1,84 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="blueGradient" x1="120" y1="150" x2="280" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#006be6" />
+      <stop offset="100%" stop-color="#003d80" />
+    </linearGradient>
+    <linearGradient id="greenGradient" x1="230" y1="130" x2="380" y2="285" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1bbd50" />
+      <stop offset="100%" stop-color="#0a7a27" />
+    </linearGradient>
+    <linearGradient id="lightGreenGradient" x1="220" y1="235" x2="350" y2="310" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#54c66c" />
+      <stop offset="100%" stop-color="#12a13b" />
+    </linearGradient>
+    <linearGradient id="bookBaseGradient" x1="100" y1="280" x2="412" y2="330" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#02244c" />
+      <stop offset="100%" stop-color="#011228" />
+    </linearGradient>
+  </defs>
+
+  <!-- Clean crisp background shield for light and dark browser tab visibility -->
+  <rect width="512" height="512" rx="120" fill="#ffffff" stroke="#e2e8f0" stroke-width="8" />
+
+  <!-- 1. GRADUATION CAP (TOP EMBLEM) -->
+  <path
+    d="M256 74L384 122L256 170L128 122L256 74Z"
+    fill="#02244c"
+    stroke="#011228"
+    stroke-width="2"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M192 131v20c0 14 28 24 64 24s64-10 64-24v-20"
+    fill="#011a37"
+    stroke="#02244c"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- 2. THE STYLIZED "C" (LEFT - VIBRANT BLUE) -->
+  <path
+    d="M232 163c-16.1 4.7-30.8 14-41.5 26.5-12.7 14.8-19.8 33.7-19.8 53.6s7.1 38.8 19.8 53.6c11.5 13.4 27.5 23 44.8 27.1 9.8 2.3 20 .5 28.7-4.8 2.5-1.5 3.1-4.7 1.4-7l-10-13.3c-1.3-1.7-3.7-2.2-5.5-1.2-11.4 6.7-25.9 5.8-36.2-2.3-11.6-9.1-18.4-23.2-18.4-38.1s6.8-29 18.4-38.1c11.2-8.8 27.2-9.2 38.8-1 1.7 1.2 4 0.7 5.2-1.1l11.4-16.8c1.6-2.4 1-5.7-1.4-7.3-12.1-8-27-11.2-41-9.2z"
+    fill="url(#blueGradient)"
+  />
+
+  <!-- Academic Tassel (Leaf Green) -->
+  <path d="M171 128v40" stroke="#12a13b" stroke-width="6" stroke-linecap="round" />
+  <circle cx="171" cy="152" r="8" fill="#12a13b" stroke="#0f8731" stroke-width="1" />
+  <path d="M164 168l-6 42h26l-6-42z" fill="#12a13b" stroke="#0a541f" stroke-width="0.5" stroke-linejoin="round" />
+  <line x1="168" y1="175" x2="168" y2="204" stroke="#54c66c" stroke-width="1.5" />
+  <line x1="171" y1="175" x2="171" y2="206" stroke="#90dfa0" stroke-width="1.5" />
+  <line x1="174" y1="175" x2="174" y2="204" stroke="#54c66c" stroke-width="1.5" />
+
+  <!-- 3. THE STYLIZED "S" (RIGHT - LEAF GREEN) -->
+  <path
+    d="M336 152h-68c-12 0-21 9-21 21s10 21 21 21h40c21 0 38 17 38 38s-17 38-38 38h-48v-17h48c10 0 18-8 18-18s-8-18-18-18h-40c-21 0-38-17-38-38s17-38 38-38h68z"
+    fill="url(#greenGradient)"
+  />
+
+  <!-- 4. DIGITAL STREAM PIXELS & PLAY STREAM KEY -->
+  <rect x="360" y="162" width="18" height="18" rx="5" fill="#12a13b" />
+  <rect x="345" y="190" width="18" height="18" rx="5" fill="#005cb9" />
+  <rect x="382" y="175" width="16" height="16" rx="4" fill="#54c66c" />
+  <rect x="398" y="206" width="14" height="14" rx="3.5" fill="#005cb9" />
+  <rect x="385" y="222" width="16" height="16" rx="4" fill="#005ec2" />
+  <rect x="318" y="182" width="16" height="16" rx="4" fill="#12a13b" />
+
+  <!-- Blue Streaming Play Triangle -->
+  <path d="M352 242l-23-14V256l23-14z" fill="#005cb9" stroke="#005cb9" stroke-width="3.5" stroke-linejoin="round" />
+
+  <!-- 5. OPEN BOOK (BOTTOM BASE) -->
+  <path
+    d="M256 332c-35-15-81-22-140-14v16c59-8 105-1 140 14c35-15 81-22 140-14v-16c-59-8-105-1-140 14z"
+    fill="url(#bookBaseGradient)"
+    stroke="#011228"
+    stroke-width="1.5"
+  />
+  <path d="M116 298c30-10 70-13 140 0v-16c-70-13-110-10-140 0v16z" fill="#12a13b" />
+  <path d="M124 284c28-8 66-11 132 2v-16c-66-13-104-10-132-2v16z" fill="url(#lightGreenGradient)" />
+  <path d="M396 298c-30-10-70-13-140 0v-16c70-13 110-10 140 0v16z" fill="#0f8731" />
+  <path d="M388 284c-28-8-66-11-132 2v-16c66-13 104-10 132-2v16z" fill="url(#lightGreenGradient)" />
+  <path d="M256 270v62" stroke="#02244c" stroke-width="4.5" stroke-linecap="round" />
+</svg>

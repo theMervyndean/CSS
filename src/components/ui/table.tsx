@@ -22,7 +22,7 @@ export function TableRow({ className, ...props }: React.HTMLAttributes<HTMLTable
   return (
     <tr
       className={cn(
-        "border-b border-slate-200 transition-colors hover:bg-slate-50/50 data-[state=selected]:bg-slate-100",
+        "border-b border-slate-200/80 transition-colors duration-150 hover:bg-emerald-50/25 dark:hover:bg-slate-800/40 data-[state=selected]:bg-slate-100",
         className
       )}
       {...props}
@@ -45,7 +45,7 @@ export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTa
 export function TableCell({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td
-      className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0 text-slate-700", className)}
+      className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0 text-slate-700 transition-colors duration-150", className)}
       {...props}
     />
   );

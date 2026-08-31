@@ -1,10 +1,17 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100..900;1,100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400..700;1,400..700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@variant dark (&:where(.dark, .dark *));
+
+:root {
+  --font-app-current: "Montserrat", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-app-heading: "Montserrat", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Montserrat", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
 
 @theme {
-  --font-sans: "Montserrat", "Poppins", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Poppins", "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   /* Corner Streams Brand Palette coordinates */
@@ -39,19 +46,30 @@
 }
 
 /* Custom global aesthetics */
-html, body {
+html, body, #root {
+  font-family: var(--font-app-current, "Montserrat", ui-sans-serif, system-ui, sans-serif);
   scroll-behavior: smooth;
   max-width: 100vw;
   overflow-x: hidden;
   position: relative;
 }
 body {
-  font-family: "Montserrat", "Poppins", sans-serif;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   background-color: #f8fafc;
   max-width: 100vw;
   overflow-x: hidden;
+}
+body, button, input, select, textarea, optgroup, [role="button"], h1, h2, h3, h4, h5, h6, p, span, a, label, table, th, td {
+  font-family: inherit;
+}
+
+/* Utilities for Tailwind font classes to guarantee proper variable resolution */
+.font-sans {
+  font-family: var(--font-app-current, "Montserrat", ui-sans-serif, system-ui, sans-serif) !important;
+}
+.font-display {
+  font-family: var(--font-app-heading, var(--font-app-current, "Montserrat", ui-sans-serif, system-ui, sans-serif)) !important;
 }
 #root {
   max-width: 100vw;
@@ -246,7 +264,9 @@ html.dark [class*="bg-white"] {
 html.dark .text-slate-900,
 html.dark .text-slate-800,
 html.dark .text-slate-700,
-html.dark .text-slate-850 {
+html.dark .text-slate-850,
+html.dark .text-indigo-950,
+html.dark .text-indigo-900 {
   color: #f8fafc !important;
 }
 
@@ -320,21 +340,87 @@ html.dark [data-sonner-toast] {
   color: #f8fafc !important;
 }
 
-/* Dynamic Font Options */
+/* Dynamic Font Options & Global Typography Switcher */
+html.font-opt-montserrat,
+html.font-opt-montserrat body,
+html.font-opt-montserrat #root,
+html.font-opt-montserrat *,
 .font-opt-montserrat {
-  font-family: 'Montserrat', sans-serif !important;
+  --font-app-current: "Montserrat", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  --font-app-heading: "Montserrat", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif !important;
+  --font-display: "Montserrat", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Montserrat', ui-sans-serif, system-ui, sans-serif !important;
 }
+
+html.font-opt-poppins,
+html.font-opt-poppins body,
+html.font-opt-poppins #root,
+html.font-opt-poppins *,
 .font-opt-poppins {
-  font-family: 'Poppins', sans-serif !important;
+  --font-app-current: "Poppins", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  --font-app-heading: "Poppins", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif !important;
+  --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif !important;
 }
+
+html.font-opt-inter,
+html.font-opt-inter body,
+html.font-opt-inter #root,
+html.font-opt-inter *,
 .font-opt-inter {
-  font-family: 'Inter', sans-serif !important;
+  --font-app-current: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  --font-app-heading: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif !important;
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
 }
-.font-opt-mono {
-  font-family: 'JetBrains Mono', monospace !important;
+
+html.font-opt-mono,
+html.font-opt-mono body,
+html.font-opt-mono #root,
+html.font-opt-mono *,
+html.font-opt-jetbrains,
+html.font-opt-jetbrains body,
+html.font-opt-jetbrains #root,
+html.font-opt-jetbrains *,
+.font-opt-mono,
+.font-opt-jetbrains {
+  --font-app-current: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important;
+  --font-app-heading: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important;
+  --font-sans: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important;
+  --font-display: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace !important;
 }
-.font-opt-serif {
-  font-family: 'Playfair Display', serif !important;
+
+html.font-opt-serif,
+html.font-opt-serif body,
+html.font-opt-serif #root,
+html.font-opt-serif *,
+html.font-opt-playfair,
+html.font-opt-playfair body,
+html.font-opt-playfair #root,
+html.font-opt-playfair *,
+.font-opt-serif,
+.font-opt-playfair {
+  --font-app-current: "Playfair Display", ui-serif, Georgia, serif !important;
+  --font-app-heading: "Playfair Display", ui-serif, Georgia, serif !important;
+  --font-sans: "Playfair Display", ui-serif, Georgia, serif !important;
+  --font-display: "Playfair Display", ui-serif, Georgia, serif !important;
+  font-family: 'Playfair Display', ui-serif, Georgia, serif !important;
+}
+
+html.font-opt-space,
+html.font-opt-space body,
+html.font-opt-space #root,
+html.font-opt-space *,
+.font-opt-space {
+  --font-app-current: "Space Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  --font-app-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif !important;
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif !important;
 }
 
 /* Three Custom Color Themes (emerald, amber, purple) */
@@ -379,5 +465,612 @@ html.dark [data-sonner-toast] {
   --color-indigo-900: #581c87 !important;
   --color-indigo-950: #2e1065 !important;
 }
+
+/* Dynamic School State CSS Variables (initialized with fallbacks and synchronized dynamically via schoolState in App.tsx) */
+:root {
+  --school-name: "Corner Streams Private School";
+  --school-name-raw: Corner Streams Private School;
+  --school-logo-url: none;
+  --school-logo-raw: "";
+  --school-motto: "Excellence & Honor in Character and Service";
+  --school-address: "12 Corner Streams Boulevard, Victoria Island, Lagos";
+  --school-phone: "+234 814 188 0550";
+  --school-email: "bursar@cornerstreams.edu.ng";
+  --school-website: "www.cornerstreams.edu.ng";
+  --school-principal: "Chief Folasade Adebayo";
+  --school-seal: "OFFICIAL INSTITUTIONAL SEAL";
+}
+
+/* ==========================================================================
+   PAPERLESS-FRIENDLY PDF & MULTI-PAGE PRINT STYLES (CORNER STREAMS SYSTEM-WIDE)
+   ========================================================================== */
+@page {
+  size: A4 portrait;
+  margin: 10mm 10mm 12mm 10mm;
+}
+
+@page :left {
+  margin: 10mm 10mm 12mm 10mm;
+}
+
+@page :right {
+  margin: 10mm 10mm 12mm 10mm;
+}
+
+/* Screen utility for print-only header elements */
+.print-only-school-header,
+.dynamic-school-letterhead,
+.print-only-letterhead {
+  display: none;
+}
+
+/* Default screen styles for school header */
+.print-school-header,
+.school-branded-header,
+.printable-school-header,
+.report-card-school-header {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 2.5px solid #02244c;
+  box-sizing: border-box;
+}
+
+@media print {
+  /* ==========================================================================
+     1. GLOBAL PRINT RESETS & NON-PRINTABLE ELEMENTS SUPPRESSION
+     ========================================================================== */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Suppress all interactive UI, toolbars, sidebars, floating widgets, dialog backdrops, and action buttons */
+  header:not(.print-school-header):not(.school-branded-header):not(.printable-school-header):not(.report-card-school-header):not(.print-only-school-header):not(.dynamic-school-letterhead):not(.print-only-letterhead),
+  nav,
+  aside,
+  .no-print,
+  .print\:hidden,
+  [role="navigation"],
+  [role="dialog"] > div:first-child:not([class*="printable"]),
+  #ai-assistant-bubble,
+  #ai-tutor-widget,
+  #report-mode-toggle-group,
+  #student-filter-selector,
+  #active-tab-navigation-bar,
+  .toaster,
+  [data-sonner-toaster],
+  [data-sonner-toast],
+  [data-radix-portal] > button,
+  button:not(.print-include),
+  input[type="file"],
+  .fixed.inset-0.bg-black\/30,
+  .fixed.inset-0.bg-slate-950\/75,
+  .fixed.inset-0.bg-slate-950\/85,
+  .backdrop-blur-md,
+  .backdrop-blur-sm,
+  .backdrop-blur-xs {
+    display: none !important;
+  }
+
+  /* Make sure print-only school headers and dynamic letterheads are prominently visible */
+  .print-only-school-header,
+  .dynamic-school-letterhead,
+  .print-only-letterhead {
+    display: flex !important;
+  }
+
+  /* Clean base layout reset */
+  html,
+  body,
+  #root {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    font-size: 11pt !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Remove all overflow constraints to prevent text cutoff */
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-hidden:not(.fit-to-page-a4),
+  .overflow-scroll,
+  [class*="max-h-"],
+  [class*="h-\["] {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+
+  /* Document root wrappers */
+  main,
+  #report-docket-container,
+  #printable-statement,
+  #printable-financial-statement,
+  #printable-class-results-ledger,
+  .printable-report-card-container,
+  .printable-financial-container,
+  .cs-card,
+  #cs-academic-broadsheet-vault,
+  #financial-ledger-stream-viewport,
+  .modal-print-container {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  /* ==========================================================================
+     2. DYNAMIC SCHOOL-BRANDED LETTERHEAD & PRINT-ONLY HEADER STYLING
+     (Pulls school name, motto, logo, and contacts from schoolState CSS variables)
+     ========================================================================== */
+  .print-school-header,
+  .school-branded-header,
+  .printable-school-header,
+  .report-card-school-header,
+  .print-only-school-header,
+  .dynamic-school-letterhead,
+  .print-only-letterhead {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    margin-top: 0 !important;
+    margin-bottom: 0.85rem !important;
+    padding-bottom: 0.65rem !important;
+    border-bottom: 2.5px solid #02244c !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #0f172a !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    position: relative !important;
+  }
+
+  .print-school-header-brand {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Dynamic School Logo Container */
+  .print-school-logo-badge {
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    min-height: 54px !important;
+    background-color: #02244c !important;
+    color: #ffffff !important;
+    border: 2px solid #12a13b !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: "JetBrains Mono", monospace !important;
+    font-weight: 900 !important;
+    font-size: 1.25rem !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    overflow: hidden !important;
+    background-size: contain !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+  }
+
+  /* When dynamic school logo url is provided via schoolState */
+  .dynamic-school-logo {
+    background-image: var(--school-logo-url) !important;
+    background-size: contain !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+  }
+
+  .print-school-logo-img {
+    max-height: 54px !important;
+    max-width: 95px !important;
+    width: auto !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Dynamic School Title: Defaults or falls back cleanly with Montserrat/Poppins display typography */
+  .print-school-title {
+    font-family: "Montserrat", "Poppins", sans-serif !important;
+    font-size: 1.15rem !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: -0.02em !important;
+    color: #02244c !important;
+    margin: 0 !important;
+    line-height: 1.1 !important;
+  }
+
+  .dynamic-school-name:empty::before,
+  .print-school-title.dynamic-title:empty::before {
+    content: var(--school-name) !important;
+  }
+
+  .print-school-subtitle {
+    font-size: 0.65rem !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: #0f8731 !important;
+    margin-bottom: 0.15rem !important;
+    display: block !important;
+  }
+
+  .print-school-motto {
+    font-size: 0.68rem !important;
+    font-style: italic !important;
+    color: #334155 !important;
+    margin-top: 0.15rem !important;
+    font-weight: 500 !important;
+  }
+
+  .dynamic-school-motto:empty::before {
+    content: var(--school-motto) !important;
+  }
+
+  .print-school-meta {
+    font-size: 0.62rem !important;
+    font-family: "JetBrains Mono", monospace !important;
+    color: #64748b !important;
+    margin-top: 0.15rem !important;
+  }
+
+  .dynamic-school-address:empty::before {
+    content: var(--school-address) !important;
+  }
+
+  .print-school-seal-badge {
+    text-align: right !important;
+    flex-shrink: 0 !important;
+  }
+
+  .print-school-seal-badge .badge-title {
+    display: inline-block !important;
+    padding: 0.2rem 0.6rem !important;
+    background-color: #02244c !important;
+    color: #ffffff !important;
+    font-family: "JetBrains Mono", monospace !important;
+    font-size: 0.62rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    border-radius: 6px !important;
+  }
+
+  .print-school-seal-badge .badge-meta {
+    font-size: 0.6rem !important;
+    font-family: "JetBrains Mono", monospace !important;
+    color: #475569 !important;
+    margin-top: 0.25rem !important;
+  }
+
+  /* ==========================================================================
+     3. SIGNATURES, OFFICIAL STAMPS & AUTHORIZATION BLOCKS
+     ========================================================================== */
+  .signature-section,
+  .signature-block,
+  .sign-off-grid,
+  .bursary-authorization-block,
+  .teacher-signature-box,
+  .principal-signature-box,
+  [class*="signature"] {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    position: relative !important;
+    margin-top: 0.5rem !important;
+  }
+
+  /* Signature line underline styling */
+  .signature-line,
+  .border-slate-900.border-b,
+  .border-slate-900.border-b-2,
+  .border-slate-400.border-b {
+    border-bottom: 1.5px solid #0f172a !important;
+    background-color: transparent !important;
+  }
+
+  /* Signature graphic / digital representation */
+  .signature-image,
+  .signature-section img {
+    max-height: 42px !important;
+    width: auto !important;
+    object-fit: contain !important;
+    filter: contrast(1.15) !important;
+  }
+
+  /* Cryptographic and verification badge highlights */
+  .bg-emerald-50,
+  .bg-emerald-100 {
+    background-color: #f0fdf4 !important;
+    color: #065f46 !important;
+    border-color: #86efac !important;
+  }
+
+  .bg-amber-50,
+  .bg-amber-100 {
+    background-color: #fffbeb !important;
+    color: #92400e !important;
+    border-color: #fde68a !important;
+  }
+
+  .bg-indigo-50,
+  .bg-indigo-100 {
+    background-color: #f5f7ff !important;
+    color: #1e1b4b !important;
+    border-color: #c7d2fe !important;
+  }
+
+  .bg-purple-50,
+  .bg-purple-100 {
+    background-color: #faf5ff !important;
+    color: #581c87 !important;
+    border-color: #e9d5ff !important;
+  }
+
+  .bg-rose-50,
+  .bg-rose-100 {
+    background-color: #fff1f2 !important;
+    color: #9f1239 !important;
+    border-color: #fecdd3 !important;
+  }
+
+  /* ==========================================================================
+     4. BACKGROUND COLORS, INK-SAVING & CONTRAST INVERSION
+     ========================================================================== */
+  /* Dark mode and dark containers must invert to clean white backgrounds with dark text */
+  .bg-slate-900,
+  .bg-slate-950,
+  .bg-indigo-950,
+  .bg-indigo-900,
+  .bg-black {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  /* Text color corrections for inverted dark containers */
+  .text-white,
+  .text-slate-100,
+  .text-slate-200,
+  .text-slate-300,
+  .text-slate-400 {
+    color: #334155 !important;
+  }
+
+  .text-slate-500,
+  .text-slate-600 {
+    color: #475569 !important;
+  }
+
+  .text-slate-700,
+  .text-slate-800,
+  .text-slate-900,
+  .text-slate-950 {
+    color: #0f172a !important;
+  }
+
+  .text-emerald-400,
+  .text-emerald-300 {
+    color: #047857 !important;
+  }
+
+  .text-indigo-400,
+  .text-indigo-300 {
+    color: #1d4ed8 !important;
+  }
+
+  .text-amber-400,
+  .text-amber-300 {
+    color: #b45309 !important;
+  }
+
+  .border-slate-700,
+  .border-slate-800,
+  .border-slate-900,
+  .border-indigo-800,
+  .border-indigo-900 {
+    border-color: #94a3b8 !important;
+  }
+
+  /* Watermark transparency */
+  .watermark,
+  .bg-watermark,
+  [class*="watermark"] {
+    opacity: 0.04 !important;
+  }
+
+  /* ==========================================================================
+     5. REPORT CARDS & DOSSIER MULTI-PAGE PAGINATION RULES
+     ========================================================================== */
+  .report-card-page,
+  .student-dossier-card,
+  .broadsheet-page {
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .report-card-page:last-child,
+  .student-dossier-card:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  /* FIT-TO-PAGE SINGLE A4 REPORT CARD RESTRAINTS */
+  .fit-to-page-a4 {
+    height: auto !important;
+    max-height: 278mm !important;
+    box-sizing: border-box !important;
+    padding: 3mm 4mm !important;
+    margin: 0 auto !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+  }
+
+  .fit-to-page-a4 .print-school-header {
+    margin-bottom: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
+
+  .fit-to-page-a4 table {
+    font-size: 7.5pt !important;
+    line-height: 1.1 !important;
+  }
+
+  .fit-to-page-a4 th,
+  .fit-to-page-a4 td {
+    padding-top: 1pt !important;
+    padding-bottom: 1pt !important;
+    padding-left: 2.5pt !important;
+    padding-right: 2.5pt !important;
+  }
+
+  .fit-to-page-a4 .signature-section {
+    margin-top: 0.25rem !important;
+    padding-top: 0.25rem !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* ==========================================================================
+     6. TABLES, BROADSHEETS & FINANCIAL LEDGERS GRID REPEAT
+     ========================================================================== */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+    font-size: 8.5pt !important;
+    line-height: 1.25 !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  thead tr {
+    background-color: #02244c !important;
+    color: #ffffff !important;
+  }
+
+  thead th {
+    background-color: #02244c !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    border: 1px solid #02244c !important;
+    padding: 3.5pt 4pt !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  tfoot tr {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  td,
+  th {
+    border: 1px solid #cbd5e1 !important;
+    padding: 3pt 4pt !important;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: #f8fafc !important;
+  }
+
+  tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+  }
+
+  /* Prevent cards, statistics grids, and ledger sections from breaking mid-content */
+  .cs-card,
+  .print-break-avoid,
+  .student-dossier-card,
+  .gradebook-section,
+  .financial-stat-card,
+  .ledger-summary-grid,
+  blockquote,
+  figure {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* ==========================================================================
+     7. PAYSTUB / PAYROLL SLIP SPECIFIC PRINT STYLES
+     ========================================================================== */
+  .paystub-slip,
+  .payroll-print-container {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    border: 1.5px solid #02244c !important;
+    border-radius: 8px !important;
+    padding: 6mm !important;
+    margin-bottom: 6mm !important;
+    background: #ffffff !important;
+  }
+
+  .paystub-slip .paystub-header {
+    border-bottom: 2px solid #02244c !important;
+    padding-bottom: 4mm !important;
+    margin-bottom: 4mm !important;
+  }
+}
+
 
 

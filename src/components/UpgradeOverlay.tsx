@@ -1,80 +1,109 @@
-import React from "react";
-import { ShieldAlert, Sparkles, Layers, ArrowRight } from "lucide-react";
+import React, { useState } from "react";
+import { ShieldAlert, Sparkles, Layers, ArrowRight, Zap, CheckCircle2 } from "lucide-react";
 import { motion } from "motion/react";
+import InteractivePlanComparisonModal from "./InteractivePlanComparisonModal";
 
 interface UpgradeOverlayProps {
   title: string;
   requiredTier: string;
   description: string;
-  onUpgrade: () => void;
+  onUpgrade?: () => void;
 }
 
 export function UpgradeOverlay({ title, requiredTier, description, onUpgrade }: UpgradeOverlayProps) {
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+
+  const handleTriggerUpgrade = () => {
+    setIsPlanModalOpen(true);
+  };
+
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 text-center max-w-lg mx-auto my-8 shadow-lg relative overflow-hidden"
-    >
-      {/* Decorative top strip with gradient */}
-      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600" />
-      
-      <div className="mx-auto w-14 h-14 rounded-full bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner mb-4">
-        <Layers className="w-7 h-7" />
-      </div>
+    <>
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 sm:p-8 text-center max-w-xl mx-auto my-8 shadow-2xl relative overflow-hidden font-sans"
+      >
+        {/* Decorative top strip with gradient */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-emerald-500 to-amber-500" />
+        
+        {/* 14-Day Free Trial Banner Badge */}
+        <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-black uppercase tracking-wider px-3 py-1 rounded-full mb-4 shadow-sm">
+          <Zap className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+          <span>Includes 14-Day Risk-Free Trial Offer</span>
+        </div>
 
-      <div className="space-y-2">
-        <BadgeSim text="Simulated License Blockade" />
-        <h3 className="font-display font-black text-slate-800 dark:text-white text-base sm:text-lg uppercase tracking-wide">
-          Upgrade License Required
-        </h3>
-        <p className="text-[10px] uppercase font-mono font-black text-indigo-600 dark:text-emerald-400 tracking-widest leading-none">
-          Required Tier: {requiredTier}
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-indigo-950/80 border border-indigo-800/80 flex items-center justify-center text-emerald-400 shadow-inner mb-4">
+          <Layers className="w-7 h-7" />
+        </div>
+
+        <div className="space-y-2">
+          <BadgeSim text="Simulated Module License Lock" />
+          <h3 className="font-display font-black text-white text-lg sm:text-xl uppercase tracking-wide">
+            Upgrade Plan to Unlock {title}
+          </h3>
+          <p className="text-[11px] uppercase font-mono font-black text-emerald-400 tracking-widest leading-none">
+            Required License: {requiredTier}
+          </p>
+        </div>
+
+        <p className="text-xs text-slate-300 leading-relaxed max-w-md mx-auto mt-4">
+          The <strong>{title}</strong> module is locked under your school&apos;s current plan. {description}
         </p>
-      </div>
 
-      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto mt-4">
-        The <strong>{title}</strong> module is currently locked under your school's simulated subscription plan. {description}
-      </p>
-
-      {/* Feature perks card */}
-      <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-xl p-4 text-left text-[11px] text-slate-600 dark:text-slate-400 space-y-2.5 mt-5">
-        <div className="flex items-start gap-2.5">
-          <Sparkles className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-          <div>
-            <strong className="text-slate-800 dark:text-slate-200 block font-bold">Instantly Streamline Campus Workflow</strong>
-            Upgrading immediately provisions advanced academic grids, CBT exam managers, and centralized tuition registers across all participant roles.
+        {/* Feature perks card */}
+        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 text-left text-xs text-slate-300 space-y-2 mt-5">
+          <div className="flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-white block font-bold">Instantly Streamline Campus Operations</strong>
+              Upgrading unlocks AI comment generators, CBT live proctoring, broadsheet vaults, and centralized financial ledgers.
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-800 text-[11px] text-emerald-400 font-mono">
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+            <span>No credit card required for 14-day trial evaluation.</span>
           </div>
         </div>
-      </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mt-6 justify-center">
-        <motion.button 
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="px-5 py-2.5 bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 hover:from-indigo-600 hover:to-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-          onClick={onUpgrade}
-        >
-          <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-          <span>Unlock Unified Enterprise (Demo Upgrade)</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </motion.button>
-      </div>
+        <div className="flex flex-col sm:flex-row gap-3 mt-6 justify-center">
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-6 py-3 bg-gradient-to-r from-indigo-600 via-indigo-500 to-emerald-600 hover:opacity-95 text-white font-mono font-black text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+            onClick={handleTriggerUpgrade}
+          >
+            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+            <span>Compare Plans &amp; Start 14-Day Free Trial</span>
+            <ArrowRight className="w-4 h-4" />
+          </motion.button>
+        </div>
 
-      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-5">
-        © Corner Streams Licensing Safeguard
-      </div>
-    </motion.div>
+        <div className="text-[9px] text-slate-500 font-mono font-bold uppercase tracking-widest mt-5">
+          &copy; Corner Streams Institutional Licensing
+        </div>
+      </motion.div>
+
+      {/* PLAN COMPARISON MODAL */}
+      <InteractivePlanComparisonModal
+        isOpen={isPlanModalOpen}
+        onClose={() => setIsPlanModalOpen(false)}
+        onTierChange={() => {
+          if (onUpgrade) onUpgrade();
+        }}
+      />
+    </>
   );
 }
 
 function BadgeSim({ text }: { text: string }) {
   return (
-    <span className="inline-block bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/60 text-indigo-700 dark:text-indigo-400 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full leading-none">
+    <span className="inline-block bg-indigo-950/80 border border-indigo-800/80 text-indigo-300 text-[9px] font-mono font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full leading-none">
       {text}
     </span>
   );
 }
 
 export default UpgradeOverlay;
+

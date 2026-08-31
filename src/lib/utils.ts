@@ -5,3 +5,6 @@
 export function cn(...inputs: any[]): string {
   return inputs.filter(Boolean).join(" ");
 }
+
+export { getNazieePermissions } from './nazieePermissions';
+export type { NazieePermissions, NazieeSubscriptionTier } from './nazieePermissions';

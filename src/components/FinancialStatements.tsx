@@ -7,24 +7,97 @@ import React, { useState, useRef } from 'react';
 import { BillingRecord, UserProfile } from '../types';
 import { mockBillingRecords } from '../mockData';
 import { CreditCard, Landmark, FileText, Download, ShieldAlert, Sparkles, Printer, CheckCircle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
+import FinancialLedgerStream from './FinancialLedgerStream';
+import StaffPaymentLedger from './StaffPaymentLedger';
+import { generateFinancialPDF } from '../utils/pdfGenerator';
+import InvoicePrintPreviewModal from './InvoicePrintPreviewModal';
 
 interface FinancialStatementsProps {
   currentProfile: UserProfile;
   billingRecords: BillingRecord[];
   onUpdateBilling: (updated: BillingRecord[]) => void;
+  onNavigateToBroadsheet?: () => void;
 }
 
 export default function FinancialStatements({
   currentProfile,
   billingRecords,
   onUpdateBilling,
+  onNavigateToBroadsheet
 }: FinancialStatementsProps) {
+  const [subView, setSubView] = useState<'ledger_stream' | 'staff_payment' | 'classic_invoices'>('ledger_stream');
   const [activeInvoiceId, setActiveInvoiceId] = useState<string>('bl-01');
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [reconciliationMethod, setReconciliationMethod] = useState<string>('Bank Transfer (CBN Reconciled)');
   const [stampClearance, setStampClearance] = useState<boolean>(true);
-  const [showReceipt, setShowReceipt] = useState<boolean>(false);
   const [paymentSuccess, setPaymentSuccess] = useState<boolean>(false);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState<boolean>(false);
+
+  if (subView === 'ledger_stream' || subView === 'staff_payment') {
+    return (
+      <div className="flex-1 flex flex-col min-h-0 space-y-2">
+        {/* Toggle subheader */}
+        <div className="bg-white border-b border-slate-200 px-4 py-2 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Financial Hub:</span>
+            <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setSubView('ledger_stream')}
+                className={`px-3 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-wider cursor-pointer ${
+                  subView === 'ledger_stream'
+                    ? 'bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 text-white font-black shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Financial Ledger Stream
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubView('staff_payment')}
+                className={`px-3 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-wider cursor-pointer ${
+                  subView === 'staff_payment'
+                    ? 'bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 text-white font-black shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Staffs Payment & Payroll
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubView('classic_invoices')}
+                className={`px-3 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-wider cursor-pointer ${
+                  subView === 'classic_invoices'
+                    ? 'bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 text-white font-black shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Cashier Invoices
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {subView === 'ledger_stream' && (
+          <FinancialLedgerStream
+            currentProfile={currentProfile}
+            billingRecords={billingRecords}
+            onUpdateBilling={onUpdateBilling}
+            onNavigateToBroadsheet={onNavigateToBroadsheet}
+          />
+        )}
+
+        {subView === 'staff_payment' && (
+          <StaffPaymentLedger
+            currentProfile={currentProfile}
+            billingRecords={billingRecords}
+          />
+        )}
+      </div>
+    );
+  }
+
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +180,22 @@ export default function FinancialStatements({
     window.print();
   };
 
+  const handleGeneratePDFReport = () => {
+    try {
+      generateFinancialPDF({
+        title: 'INSTITUTIONAL FINANCIAL STATEMENTS & BOARD AUDIT REPORT',
+        termScope: '2025/2026 Academic Session (Term 3)',
+        preparedBy: currentProfile.fullName || 'Senior Bursar / Financial Officer',
+        currentProfile,
+        filteredBills: visibleBills
+      });
+      toast.success('📄 Formatted multi-page Financial PDF Report generated and downloaded!');
+    } catch (err) {
+      console.error('PDF Generation Error:', err);
+      toast.error('Failed to generate Financial PDF report.');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PAID':
@@ -137,7 +226,7 @@ export default function FinancialStatements({
   return (
     <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-4 h-full">
       {/* LEFT: LEDGER SPREADSHEET */}
-      <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+      <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden print:hidden">
         
         {/* Header toolbar */}
         <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
@@ -154,6 +243,26 @@ export default function FinancialStatements({
           </div>
           
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleGeneratePDFReport}
+              className="px-3 py-1 bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 hover:opacity-95 text-white text-[10px] font-black uppercase rounded-lg flex items-center gap-1.5 shadow-sm transition cursor-pointer print:hidden"
+              title="Generate a formatted, professional multi-page financial PDF report based on currently filtered view suitable for school board presentations"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Generate PDF Report</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={triggerReceiptPrint}
+              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold uppercase rounded-lg flex items-center gap-1.5 shadow-sm transition cursor-pointer print:hidden"
+              title="Print or export paperless PDF statement using native browser print dialog"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-300" />
+              <span>Print Sheet</span>
+            </button>
+
             {/* Smooth Table Horizontal Scroller */}
             <div className="flex items-center gap-1 bg-slate-200/50 p-0.5 rounded border border-slate-200">
               <button
@@ -234,17 +343,32 @@ export default function FinancialStatements({
         {/* Printable section wrapper */}
         <div id="printable-statement" className="flex-1 flex flex-col">
           {/* Statement top styling info */}
-          <div className="border-b border-slate-800 pb-4 mb-4 flex justify-between items-start">
-            <div>
-              <span className="text-[10px] bg-indigo-500 text-white font-mono px-2 py-0.5 rounded font-bold uppercase tracking-widest">
+          <div className="print-school-header border-b border-slate-800 pb-4 mb-4 flex justify-between items-start gap-3">
+            <div className="print-school-header-brand flex items-center gap-3">
+              <div className="print-school-logo-badge w-12 h-12 bg-indigo-950 text-white rounded-xl flex items-center justify-center font-black text-lg border-2 border-emerald-500 shrink-0">
+                CS
+              </div>
+              <div>
+                <span className="print-school-subtitle text-[9px] font-mono font-black uppercase tracking-widest text-emerald-500 block">
+                  Corner Streams Educational Network
+                </span>
+                <h2 className="print-school-title text-xs sm:text-sm font-black uppercase tracking-tight text-white print:text-slate-900">
+                  Corner Streams International Academy
+                </h2>
+                <p className="print-school-motto text-[9px] italic text-slate-400 print:text-slate-600">
+                  Motto: &quot;Excellence &amp; Honor in Character and Service&quot;
+                </p>
+                <p className="print-school-meta text-[8.5px] text-slate-400 font-mono print:text-slate-500">
+                  12 Corner Streams Boulevard, Victoria Island, Lagos &bull; Official Bursary Ledger
+                </p>
+              </div>
+            </div>
+            <div className="print-school-seal-badge text-right shrink-0">
+              <span className="badge-title text-[9px] bg-indigo-500 text-white font-mono px-2 py-0.5 rounded font-bold uppercase tracking-widest inline-block">
                 Official Transcript
               </span>
-              <h2 className="text-sm font-black uppercase mt-1.5 tracking-tight">CORNER STREAMS</h2>
-              <p className="text-[9px] text-slate-400">Zero Paper Clearance Protocol</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-mono font-bold text-indigo-400">{selectedBill.invoiceNumber}</p>
-              <p className="text-[9px] text-slate-500">{selectedBill.term} • {selectedBill.session}</p>
+              <p className="badge-meta text-xs font-mono font-bold text-indigo-400 mt-1">{selectedBill.invoiceNumber}</p>
+              <p className="badge-meta text-[9px] text-slate-400 print:text-slate-600">{selectedBill.term} &bull; {selectedBill.session}</p>
             </div>
           </div>
 
@@ -329,7 +453,7 @@ export default function FinancialStatements({
 
         {/* Administration payment intervention widget */}
         {isAdmin && selectedBill.status !== 'PAID' && (
-          <form onSubmit={handleMakePayment} className="mt-6 pt-4 border-t border-slate-800 space-y-3">
+          <form onSubmit={handleMakePayment} className="mt-6 pt-4 border-t border-slate-800 space-y-3 print:hidden">
             <h5 className="text-[10px] uppercase font-bold text-amber-400">Institutional Payment Gate override</h5>
             <div className="flex gap-2">
               <input
@@ -351,7 +475,7 @@ export default function FinancialStatements({
             </div>
             <button
               type="submit"
-              className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase rounded tracking-wider"
+              className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase rounded tracking-wider cursor-pointer"
             >
               Post Clearance Entry
             </button>
@@ -366,13 +490,22 @@ export default function FinancialStatements({
         )}
 
         <button
-          onClick={triggerReceiptPrint}
-          className="mt-4 w-full py-2 bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-black uppercase rounded tracking-widest flex items-center justify-center gap-1.5 transition"
+          onClick={() => setIsPrintPreviewOpen(true)}
+          className="mt-4 w-full py-2.5 bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 hover:opacity-95 text-white text-[10.5px] font-black uppercase rounded-lg tracking-widest flex items-center justify-center gap-2 transition cursor-pointer shadow-md print:hidden"
+          title="Open official document Print Preview with A4 formatting options"
         >
           <Printer className="w-3.5 h-3.5" />
-          Export / Download Financial Transcript
+          Print Preview Invoice Document
         </button>
       </div>
+
+      {/* BILLING INVOICE PRINT PREVIEW MODAL */}
+      <InvoicePrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        billingRecord={selectedBill}
+        currentProfile={currentProfile}
+      />
     </div>
   );
 }

@@ -5,7 +5,9 @@
 
 import React, { useState } from 'react';
 import { GradeRecord, UserProfile } from '../types';
-import { ShieldAlert, BookOpen, ToggleLeft, ToggleRight, Printer, AlertCircle, CheckSquare, Sparkles } from 'lucide-react';
+import { ShieldAlert, BookOpen, ToggleLeft, ToggleRight, Printer, AlertCircle, CheckSquare, Sparkles, Lock, Unlock, Download } from 'lucide-react';
+import { toast } from 'sonner';
+import { generateStudentResultPDF } from '../utils/studentPdfGenerator';
 
 interface ResultCheckerProps {
   currentProfile: UserProfile;
@@ -24,6 +26,7 @@ export default function ResultChecker({
   const [reportMode, setReportMode] = useState<'half_term' | 'full_term'>('full_term');
   const [backendReport, setBackendReport] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isPrintMode, setIsPrintMode] = useState<boolean>(false);
 
   const isParent = currentProfile.role === 'Parent';
   const isStudent = currentProfile.role === 'Student';
@@ -119,6 +122,55 @@ export default function ResultChecker({
   const targetStudent = studentsProfileList.find((s) => s.id === activeChildId) || studentsProfileList[0];
   const studentGrades = grades.filter((g) => g.studentId === activeChildId);
 
+  // Class Teacher Result Lock Enforcement for Parent & Student view
+  const studentLocks = React.useMemo(() => {
+    try {
+      const saved = localStorage.getItem("CS_STUDENT_RESULT_LOCKS");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  }, [activeChildId]);
+
+  const isClassWideLocked = React.useMemo(() => {
+    try {
+      return localStorage.getItem("CS_CLASS_WIDE_RESULT_LOCK") === "true";
+    } catch (e) {
+      return false;
+    }
+  }, []);
+
+  const isLockedByTeacher = isClassWideLocked || !!studentLocks[activeChildId];
+
+  // If locked by class teacher for parent/student
+  if ((isParent || isStudent) && isLockedByTeacher) {
+    return (
+      <div id="teacher-result-lockout-panel" className="p-6 bg-white rounded-xl border border-rose-200 shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[400px] animate-in fade-in duration-200">
+        <div className="w-16 h-16 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center mb-4">
+          <Lock className="w-8 h-8 text-rose-600 animate-pulse" />
+        </div>
+        <h3 className="text-sm font-black text-rose-950 uppercase tracking-widest mb-1">
+          🔒 TERM REPORT CARD LOCKED BY CLASS TEACHER
+        </h3>
+        <p className="text-xs text-rose-800 font-bold max-w-sm">
+          Classroom Academic Access Hold Active for {targetStudent?.fullName || (targetStudent as any)?.name || "Student"}
+        </p>
+        <p className="text-[11px] text-slate-600 max-w-md mt-3 leading-relaxed">
+          Your class teacher has locked access to this term's report card in the portal. Access will be restored once academic verification, class clearance, or bursary clearance is completed.
+        </p>
+        <div className="mt-5 bg-rose-50/80 border border-rose-200 p-3.5 rounded-xl text-[10.5px] text-left max-w-md font-mono text-rose-900 space-y-1">
+          <span className="font-bold flex items-center gap-1.5 text-rose-950">
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+            CLASS TEACHER CLEARANCE INSTRUCTIONS:
+          </span>
+          <p className="leading-snug text-rose-800">
+            Please contact your class teacher or the school bursary department to resolve clearance requirements and request result unlock.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Parent Multi-Child Selector
   const childrenList = isParent
     ? studentsProfileList.filter((s) => (currentProfile.studentIds || []).includes(s.id))
@@ -188,66 +240,153 @@ export default function ResultChecker({
     ? { avg: backendReport.overall_average_percentage, gradeLetter: getGradeForPercent(backendReport.overall_average_percentage) }
     : calculateOverallAverages();
 
-  return (
-    <div className="flex-grow flex-shrink flex gap-4 h-full overflow-hidden flex-col">
-      {/* TOOLBAR CONTROLS */}
-      <div id="results-checker-toolbar" className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-3 shrink-0">
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* Multi-child selector */}
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0">
-            {isParent ? 'Affiliated Children:' : 'Student Roster Catalog:'}
-          </span>
-          <select
-            id="student-filter-selector"
-            value={activeChildId}
-            onChange={(e) => setActiveChildId(e.target.value)}
-            className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-700 outline-none font-bold"
-          >
-            {childrenList.map((child) => (
-              <option key={child.id} value={child.id}>
-                {child.fullName} ({child.username})
-              </option>
-            ))}
-          </select>
-        </div>
+  const handleDownloadStudentPDF = () => {
+    try {
+      generateStudentResultPDF({
+        student: targetStudent,
+        grades: studentGrades,
+        reportMode,
+        classAveragePct: summaryStats.avg
+      });
+      toast.success(`📄 Formatted PDF Report Card generated for ${targetStudent.fullName}!`);
+    } catch (err) {
+      console.error('Failed to generate student PDF:', err);
+      toast.error('Failed to generate PDF report card.');
+    }
+  };
 
-        {/* Report Mode Dual-Switch */}
-        <div className="flex items-center gap-2 select-none">
-          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Report Mode Scope:</span>
-          <div id="report-mode-toggle-group" className="bg-slate-100 p-0.5 rounded-lg flex border border-slate-200">
+  return (
+    <div className="flex-grow flex-shrink flex gap-3 h-full overflow-hidden flex-col">
+      {/* PRINT MODE ACTION BANNER */}
+      {isPrintMode && (
+        <div className="p-3.5 bg-slate-900 text-white rounded-xl shadow-lg flex flex-wrap justify-between items-center gap-3 shrink-0 print:hidden border border-slate-700">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30">
+              <Printer className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                🖨️ Clean A4 Print Mode Active
+              </p>
+              <p className="text-[10.5px] text-slate-300">
+                UI navigation controls and selectors are hidden. The report card docket is formatted for clean A4 printing.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
             <button
-              id="half-term-toggle-btn"
-              onClick={() => setReportMode('half_term')}
-              className={`px-3 py-1 text-[10px] font-black uppercase rounded tracking-wider transition ${
-                reportMode === 'half_term' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-              }`}
+              type="button"
+              id="btn-trigger-result-browser-print"
+              onClick={() => window.print()}
+              className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-[10.5px] font-black uppercase tracking-wider rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow"
             >
-              Half-Term (40 Marks scaled)
+              <Printer className="w-3.5 h-3.5" />
+              Print / Save PDF
             </button>
             <button
-              id="full-term-toggle-btn"
-              onClick={() => setReportMode('full_term')}
-              className={`px-3 py-1 text-[10px] font-black uppercase rounded tracking-wider transition ${
-                reportMode === 'full_term' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-              }`}
+              type="button"
+              id="btn-exit-result-print-mode"
+              onClick={() => setIsPrintMode(false)}
+              className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[10.5px] font-bold uppercase rounded-lg transition cursor-pointer border border-white/20"
             >
-              Full-Term (100 Marks cumulative)
+              Exit Print Mode
             </button>
           </div>
-
-          <button
-            id="print-slip-button"
-            onClick={() => window.print()}
-            className="ml-3 px-3 py-1 bg-slate-900 text-white text-[10px] font-black uppercase rounded flex items-center gap-1.5 shadow"
-          >
-            <Printer className="w-3 h-3" />
-            Print Slip
-          </button>
         </div>
-      </div>
+      )}
+
+      {/* TOOLBAR CONTROLS (Hidden in Print Mode) */}
+      {!isPrintMode && (
+        <div id="results-checker-toolbar" className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-3 shrink-0 print:hidden">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            {/* Multi-child selector */}
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0">
+              {isParent ? 'Affiliated Children:' : 'Student Roster Catalog:'}
+            </span>
+            <select
+              id="student-filter-selector"
+              value={activeChildId}
+              onChange={(e) => setActiveChildId(e.target.value)}
+              className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-700 outline-none font-bold cursor-pointer"
+            >
+              {childrenList.map((child) => (
+                <option key={child.id} value={child.id}>
+                  {child.fullName} ({child.username})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Report Mode Dual-Switch & Print Controls */}
+          <div className="flex items-center gap-2 select-none flex-wrap">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Report Mode Scope:</span>
+            <div id="report-mode-toggle-group" className="bg-slate-100 p-0.5 rounded-lg flex border border-slate-200">
+              <button
+                id="half-term-toggle-btn"
+                onClick={() => setReportMode('half_term')}
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded tracking-wider transition cursor-pointer ${
+                  reportMode === 'half_term' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Half-Term (40 Marks scaled)
+              </button>
+              <button
+                id="full-term-toggle-btn"
+                onClick={() => setReportMode('full_term')}
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded tracking-wider transition cursor-pointer ${
+                  reportMode === 'full_term' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Full-Term (100 Marks cumulative)
+              </button>
+            </div>
+
+            {/* Download Formatted PDF Button */}
+            <button
+              type="button"
+              id="btn-generate-student-pdf"
+              onClick={handleDownloadStudentPDF}
+              className="ml-2 px-3.5 py-1.5 bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 hover:opacity-95 text-white text-[10.5px] font-black uppercase tracking-wider rounded-lg transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0 print:hidden"
+              title="Generate a formatted, professional multi-page student result card PDF"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Generate PDF Report</span>
+            </button>
+
+            {/* Print Mode Toggle Button */}
+            <button
+              type="button"
+              id="btn-toggle-result-print-mode"
+              onClick={() => setIsPrintMode(!isPrintMode)}
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+              title="Toggle clean print mode and format report card for clean A4 printing"
+            >
+              <Printer className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Print View</span>
+            </button>
+
+            <button
+              id="print-slip-button"
+              onClick={() => window.print()}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-700 via-indigo-600 to-emerald-600 hover:opacity-95 text-white text-[10.5px] font-black uppercase rounded-lg flex items-center gap-2 shadow-sm transition cursor-pointer print:hidden"
+              title="Print or export paperless PDF version using native browser print dialog"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Print / Export PDF
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* RENDER REPORT DOCKET */}
-      <div id="report-docket-container" className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-auto font-sans text-slate-800 flex flex-col justify-between min-h-[400px] border-t-8 border-t-indigo-900 print:border-none print:shadow-none">
+      <div
+        id="report-docket-container"
+        className={`bg-white font-sans text-slate-800 flex flex-col justify-between min-h-[400px] print:border-none print:shadow-none print:p-0 ${
+          isPrintMode
+            ? 'max-w-[210mm] mx-auto w-full border-2 border-slate-300 rounded-xl shadow-xl p-8 overflow-auto border-t-8 border-t-indigo-900'
+            : 'flex-1 rounded-xl border border-slate-200 shadow-sm p-6 overflow-auto border-t-8 border-t-indigo-900'
+        }`}
+      >
         
         {/* Printable docket logo and header */}
         <div className="space-y-6">

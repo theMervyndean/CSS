@@ -1,0 +1,231 @@
+{
+  "entities": {
+    "schools": {
+      "title": "School Institution",
+      "description": "Institutional configuration, state accreditation, academic calendar, grading scales, and active subscription parameters.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique school tenant identifier (e.g. sch-0042)" },
+        "name": { "type": "string", "description": "Official institutional school name" },
+        "motto": { "type": "string", "description": "School motto or core institutional slogan" },
+        "email": { "type": "string", "format": "email", "description": "Official contact email address" },
+        "phone": { "type": "string", "description": "Contact telephone or WhatsApp helpline" },
+        "state": { "type": "string", "description": "State of location in Nigeria" },
+        "lga": { "type": "string", "description": "Local Government Area" },
+        "address": { "type": "string", "description": "Physical campus address" },
+        "logoUrl": { "type": "string", "description": "Cloud storage URL or asset path for official school emblem" },
+        "currentSession": { "type": "string", "description": "Active academic session (e.g. 2025/2026)" },
+        "currentTerm": { "type": "string", "enum": ["1st Term", "2nd Term", "3rd Term"], "description": "Current academic term" },
+        "subscriptionTier": { "type": "string", "enum": ["starter", "pro", "enterprise", "cbt_essentials", "cbt_pro"], "description": "Current active licensing plan" },
+        "maxStudents": { "type": "integer", "minimum": 1, "description": "Enrollment quota licensed for the institution" },
+        "isVerified": { "type": "boolean", "description": "Whether the school passed security verification" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "state", "currentSession", "currentTerm", "subscriptionTier", "isVerified"]
+    },
+    "users": {
+      "title": "User Account Profile",
+      "description": "Authenticated user accounts with Role-Based Access Control, tenant affiliation, and educational credentials.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user account identifier / Firebase UID" },
+        "schoolId": { "type": "string", "description": "Associated institutional tenant ID" },
+        "email": { "type": "string", "format": "email", "description": "User login email address" },
+        "fullName": { "type": "string", "description": "Full legal name" },
+        "role": {
+          "type": "string",
+          "enum": ["Super_Admin", "School_Admin", "Class_Teacher", "Non_Class_Teacher", "Student", "Parent", "Bursar"],
+          "description": "Strict RBAC role within Corner Streams"
+        },
+        "assignedClass": { "type": "string", "description": "Class cohort assigned (for teachers or students)" },
+        "admissionNumber": { "type": "string", "description": "Official student registration or matriculation number" },
+        "staffId": { "type": "string", "description": "Staff employee identification code" },
+        "phone": { "type": "string", "description": "User contact telephone number" },
+        "isVerified": { "type": "boolean", "description": "Identity and security onboarding verification flag" },
+        "isArchived": { "type": "boolean", "description": "Soft deletion status" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "schoolId", "email", "fullName", "role", "isVerified"]
+    },
+    "grades": {
+      "title": "Continuous Assessment & Examination Score Record",
+      "description": "Continuous assessment (CA1–CA4) and terminal examination scores strictly bound to tenant school and student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique grade entry identifier" },
+        "schoolId": { "type": "string", "description": "Tenant school identifier" },
+        "studentId": { "type": "string", "description": "Student user ID" },
+        "studentName": { "type": "string", "description": "Student full name" },
+        "classId": { "type": "string", "description": "Class cohort (e.g. JSS 1, SS 3)" },
+        "subject": { "type": "string", "description": "Academic subject title (e.g. Mathematics, English Language)" },
+        "session": { "type": "string", "description": "Academic session (e.g. 2025/2026)" },
+        "term": { "type": "string", "enum": ["1st Term", "2nd Term", "3rd Term"], "description": "Academic term" },
+        "ca1": { "type": "number", "minimum": 0, "maximum": 20, "description": "1st Continuous Assessment score" },
+        "ca2": { "type": "number", "minimum": 0, "maximum": 20, "description": "2nd Continuous Assessment score" },
+        "ca3": { "type": "number", "minimum": 0, "maximum": 10, "description": "3rd Continuous Assessment score (optional/practical)" },
+        "ca4": { "type": "number", "minimum": 0, "maximum": 10, "description": "4th Continuous Assessment score (optional/project)" },
+        "exam": { "type": "number", "minimum": 0, "maximum": 60, "description": "Terminal examination score" },
+        "totalScore": { "type": "number", "minimum": 0, "maximum": 100, "description": "Aggregated overall terminal score" },
+        "gradeLetter": { "type": "string", "enum": ["A", "B", "C", "D", "E", "F"], "description": "Calculated performance letter" },
+        "remark": { "type": "string", "description": "Subject teacher evaluative remark" },
+        "enteredByStaffId": { "type": "string", "description": "Staff ID of the teacher entering the score" },
+        "isPublished": { "type": "boolean", "description": "Whether grades are approved and published for report cards" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "schoolId", "studentId", "studentName", "classId", "subject", "session", "term", "totalScore", "gradeLetter"]
+    },
+    "cbt_exams": {
+      "title": "Computer-Based Test & Exam Definition",
+      "description": "Structured assessment blueprint with timed questions, proctoring constraints, and target cohorts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique exam identifier" },
+        "schoolId": { "type": "string", "description": "Tenant school identifier" },
+        "title": { "type": "string", "description": "Title of the exam (e.g. 2025/2026 Term 1 Biology Mock Exam)" },
+        "subject": { "type": "string", "description": "Exam subject" },
+        "targetClass": { "type": "string", "description": "Target class cohort (e.g. SS 3 Science)" },
+        "session": { "type": "string", "description": "Academic session" },
+        "term": { "type": "string", "enum": ["1st Term", "2nd Term", "3rd Term"] },
+        "durationMinutes": { "type": "integer", "minimum": 5, "maximum": 240, "description": "Allotted time limit in minutes" },
+        "totalMarks": { "type": "number", "minimum": 1, "description": "Total attainable marks" },
+        "passPercentage": { "type": "number", "minimum": 0, "maximum": 100, "description": "Minimum benchmark percentage to pass" },
+        "questions": {
+          "type": "array",
+          "description": "Structured multiple-choice or short-answer exam questions",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "question": { "type": "string" },
+              "options": { "type": "array", "items": { "type": "string" } },
+              "correctOptionIndex": { "type": "integer", "minimum": 0 },
+              "explanation": { "type": "string" },
+              "marks": { "type": "number" }
+            },
+            "required": ["id", "question", "options", "correctOptionIndex"]
+          }
+        },
+        "isPublished": { "type": "boolean", "description": "Whether exam is open for student sessions" },
+        "scheduledStartTime": { "type": "string", "format": "date-time" },
+        "scheduledEndTime": { "type": "string", "format": "date-time" },
+        "createdByStaffId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "schoolId", "title", "subject", "targetClass", "durationMinutes", "questions", "isPublished"]
+    },
+    "cbt_submissions": {
+      "title": "CBT Student Exam Session & Submission",
+      "description": "Student test session results, answer vector, biometric/proctoring violation flags, and calculated scores.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique submission identifier" },
+        "schoolId": { "type": "string", "description": "Tenant school identifier" },
+        "examId": { "type": "string", "description": "Referenced CBT exam identifier" },
+        "studentId": { "type": "string", "description": "Student user ID" },
+        "studentName": { "type": "string", "description": "Student full name" },
+        "classId": { "type": "string", "description": "Student class cohort" },
+        "answers": { "type": "object", "description": "Dictionary of questionId -> selectedOptionIndex" },
+        "score": { "type": "number", "minimum": 0, "description": "Raw total score achieved" },
+        "totalQuestions": { "type": "integer", "minimum": 1, "description": "Number of questions in the exam" },
+        "percentage": { "type": "number", "minimum": 0, "maximum": 100, "description": "Calculated score percentage" },
+        "passed": { "type": "boolean", "description": "Whether student achieved the pass benchmark" },
+        "proctoringViolations": { "type": "integer", "minimum": 0, "description": "Count of tab-switches or facial anomalies logged" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "durationSeconds": { "type": "integer", "description": "Actual duration spent on the exam" }
+      },
+      "required": ["id", "schoolId", "examId", "studentId", "score", "totalQuestions", "percentage", "passed", "submittedAt"]
+    },
+    "report_cards": {
+      "title": "Terminal Report Card Dossier",
+      "description": "Comprehensive term report card with subject summaries, class positions, principal signature, and QR verification.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique report card identifier" },
+        "schoolId": { "type": "string", "description": "Tenant school identifier" },
+        "studentId": { "type": "string", "description": "Student user ID" },
+        "studentName": { "type": "string", "description": "Student full legal name" },
+        "classId": { "type": "string", "description": "Class cohort (e.g. JSS 2 Silver)" },
+        "session": { "type": "string", "description": "Academic session" },
+        "term": { "type": "string", "enum": ["1st Term", "2nd Term", "3rd Term"] },
+        "totalScore": { "type": "number", "minimum": 0, "description": "Sum of all subject scores" },
+        "averageScore": { "type": "number", "minimum": 0, "maximum": 100, "description": "Terminal average percentage" },
+        "position": { "type": "integer", "minimum": 1, "description": "Ordinal rank position in class cohort" },
+        "totalStudentsInClass": { "type": "integer", "minimum": 1, "description": "Total number of students ranked in class" },
+        "principalRemark": { "type": "string", "description": "Official principal/headteacher remark" },
+        "teacherRemark": { "type": "string", "description": "Class teacher behavioral & academic evaluation" },
+        "affectiveRatings": { "type": "object", "description": "Punctuality, neatness, attentiveness scores (1-5)" },
+        "psychomotorRatings": { "type": "object", "description": "Handwriting, sports, crafts scores (1-5)" },
+        "qrVerificationCode": { "type": "string", "description": "Cryptographic anti-tamper verification hash" },
+        "isPublished": { "type": "boolean", "description": "Accessible to parents/students on Result Checker portal" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "schoolId", "studentId", "studentName", "classId", "session", "term", "averageScore", "qrVerificationCode", "isPublished"]
+    },
+    "bursary_ledgers": {
+      "title": "Bursary Ledger & Fee Transactions",
+      "description": "Audited double-entry financial ledger records, tuition payments, WhatsApp receipt handshakes, and school expenditures.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique transaction record identifier" },
+        "schoolId": { "type": "string", "description": "Tenant school identifier" },
+        "transactionType": { "type": "string", "enum": ["INFLOW", "OUTFLOW"], "description": "Cash flow direction" },
+        "category": { "type": "string", "description": "Financial category (e.g. Tuition, CBT Licensing, Staff Salary, Utilities)" },
+        "title": { "type": "string", "description": "Summary label of transaction" },
+        "description": { "type": "string", "description": "Detailed notes on transaction" },
+        "amount": { "type": "number", "minimum": 0, "description": "Monetary value" },
+        "currency": { "type": "string", "default": "NGN", "description": "Currency code (NGN, USD, GBP)" },
+        "paymentMethod": { "type": "string", "enum": ["Bank Transfer", "POS", "Cash", "Online Gateway", "WhatsApp Verification"] },
+        "payerOrPayeeName": { "type": "string", "description": "Name of party remitting or receiving funds" },
+        "studentId": { "type": "string", "description": "Associated student ID (for tuition fee transactions)" },
+        "receiptNumber": { "type": "string", "description": "Official printable receipt serial number" },
+        "term": { "type": "string", "enum": ["1st Term", "2nd Term", "3rd Term"] },
+        "session": { "type": "string", "description": "Academic session" },
+        "verifiedByStaffId": { "type": "string", "description": "Bursar / Admin who confirmed transaction" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "schoolId", "transactionType", "category", "title", "amount", "currency", "paymentMethod", "timestamp"]
+    },
+    "ai_analyses": {
+      "title": "Naziee AI Academic & Performance Analysis",
+      "description": "Gemini-powered longitudinal performance diagnostics, learning gap insights, and teacher intervention plans.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique AI analysis identifier" },
+        "schoolId": { "type": "string", "description": "Tenant school identifier" },
+        "studentId": { "type": "string", "description": "Target student user ID (if student-specific)" },
+        "classId": { "type": "string", "description": "Target class cohort (if class-wide analysis)" },
+        "analysisType": { "type": "string", "enum": ["student_diagnostic", "class_gap_audit", "exam_item_difficulty", "bursary_forecast"] },
+        "title": { "type": "string", "description": "Title of diagnostic report" },
+        "summary": { "type": "string", "description": "Executive summary produced by Naziee AI" },
+        "recommendations": { "type": "array", "items": { "type": "string" }, "description": "Actionable pedagogical steps" },
+        "riskLevel": { "type": "string", "enum": ["low", "moderate", "high", "critical"], "description": "Intervention urgency score" },
+        "generatedBy": { "type": "string", "description": "Model alias or triggering staff ID" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "schoolId", "analysisType", "title", "summary", "recommendations", "timestamp"]
+    },
+    "sync_audit_logs": {
+      "title": "Cloud-to-Offline Sync Transaction Audit Log",
+      "description": "Audit trail recording cloud synchronization cycles, payload integrity hashes, and IndexedDB sync events.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique audit log entry identifier" },
+        "schoolId": { "type": "string", "description": "Tenant school identifier" },
+        "userId": { "type": "string", "description": "Operator user ID initiating sync" },
+        "entityType": { "type": "string", "enum": ["grades", "report_cards", "cbt_exams", "cbt_submissions", "bursary_ledgers", "users", "schools"] },
+        "action": { "type": "string", "enum": ["CREATE", "UPDATE", "BATCH_SYNC", "ROLLBACK"] },
+        "recordCount": { "type": "integer", "minimum": 1, "description": "Number of records synchronized" },
+        "latencyMs": { "type": "integer", "minimum": 0, "description": "Round-trip synchronization latency" },
+        "status": { "type": "string", "enum": ["SUCCESS", "CONFLICT_RESOLVED", "OFFLINE_QUEUED", "FAILED"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "schoolId", "userId", "entityType", "action", "recordCount", "status", "timestamp"]
+    }
+  }
+}

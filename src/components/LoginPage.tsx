@@ -2,15 +2,89 @@ import React, { useState } from "react";
 import { BrandLogo } from "./BrandLogo";
 import { Button } from "./ui-stubs";
 import { toast } from "sonner";
-import { motion } from "motion/react";
-import { Shield, Eye, EyeOff, Lock, User, ArrowLeft, ArrowRight, Check, MessageSquare, Key } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { 
+  Shield, Eye, EyeOff, Lock, User, ArrowLeft, ArrowRight, Check, 
+  MessageSquare, Key, Sparkles, GraduationCap, Users, Landmark, 
+  HeartHandshake, Zap, Copy, ChevronDown, ChevronUp, UserCheck
+} from "lucide-react";
 import { mockUsers } from "../mockData";
 import { UserProfile } from "../types";
+import { signInWithGoogle } from "../lib/firebase";
 
 interface LoginProps {
   onLoginSuccess: (profile: UserProfile) => void;
   onChangeView: (view: 'landing' | 'login' | 'register' | 'app') => void;
 }
+
+// Dedicated test credentials for every stream
+const STREAM_TEST_ACCOUNTS = [
+  {
+    id: "stream-admin",
+    streamTitle: "Stream Admin",
+    roleName: "School Admin (Principal)",
+    email: "principal@cornerstreams.edu",
+    password: "Demo@123",
+    role: "School_Admin",
+    userName: "Dr. David K. Macaulay",
+    badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    activeColor: "hover:border-indigo-500 hover:bg-indigo-50/50",
+    icon: Landmark,
+    description: "Multi-campus control, fee ledgers, broadsheets, CBT management & staff rosters."
+  },
+  {
+    id: "stream-teacher",
+    streamTitle: "Stream Teacher",
+    roleName: "Class & Subject Educator",
+    email: "f.adebayo@cornerstreams.edu",
+    password: "Demo@123",
+    role: "Class_Teacher",
+    userName: "Mrs. Folasade Adebayo (SS 2A)",
+    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    activeColor: "hover:border-emerald-500 hover:bg-emerald-50/50",
+    icon: Users,
+    description: "Live gradebook, attendance register, automated comments & CBT question proctoring."
+  },
+  {
+    id: "stream-parent",
+    streamTitle: "Stream Parent",
+    roleName: "Parent & Guardian Portal",
+    email: "alaobenson@gmail.com",
+    password: "Demo@123",
+    role: "Parent",
+    userName: "Chief Alao Benson",
+    badgeColor: "bg-amber-50 text-amber-700 border-amber-200",
+    activeColor: "hover:border-amber-500 hover:bg-amber-50/50",
+    icon: HeartHandshake,
+    description: "Student performance dossier, term report cards, tuition invoices & school announcements."
+  },
+  {
+    id: "stream-student",
+    streamTitle: "Stream Student",
+    roleName: "Learner & Examination Hub",
+    email: "folasade@cornerstreams.edu",
+    password: "Demo@123",
+    role: "Student",
+    userName: "Folasade Amira Adekunle (SS 2)",
+    badgeColor: "bg-sky-50 text-sky-700 border-sky-200",
+    activeColor: "hover:border-sky-500 hover:bg-sky-50/50",
+    icon: GraduationCap,
+    description: "Active online CBT engine, instant score computation, terminal results & AI study tutor."
+  },
+  {
+    id: "stream-superadmin",
+    streamTitle: "Super Admin",
+    roleName: "System Operator",
+    email: "mervyn@cornernerstreams.com",
+    password: "Thriller10@",
+    role: "Super_Admin",
+    userName: "Mervyndean Hilary",
+    badgeColor: "bg-purple-50 text-purple-700 border-purple-200",
+    activeColor: "hover:border-purple-500 hover:bg-purple-50/50",
+    icon: Shield,
+    description: "Corner Streams platform operator, school onboarding verification & system audit."
+  }
+];
 
 export default function LoginPage({ onLoginSuccess, onChangeView }: LoginProps) {
   const [email, setEmail] = useState("");
@@ -18,89 +92,97 @@ export default function LoginPage({ onLoginSuccess, onChangeView }: LoginProps) 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Passcode protection state for Stream test credentials
+  const [isDemoUnlocked, setIsDemoUnlocked] = useState(false);
+  const [showPasscodeModal, setShowPasscodeModal] = useState(false);
+  const [demoPasscode, setDemoPasscode] = useState("");
+  const [passcodeError, setPasscodeError] = useState("");
+
+  const handleToggleDemoAccess = () => {
+    if (isDemoUnlocked) {
+      setIsDemoUnlocked(false);
+      setShowDemoPanel(false);
+      toast.info("Test credentials locked.");
+    } else {
+      setDemoPasscode("");
+      setPasscodeError("");
+      setShowPasscodeModal(true);
+    }
+  };
+
+  const handleVerifyPasscode = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (demoPasscode.trim() === "12345") {
+      setIsDemoUnlocked(true);
+      setShowDemoPanel(true);
+      setShowPasscodeModal(false);
+      setPasscodeError("");
+      toast.success("Stream test credentials unlocked!");
+    } else {
+      setPasscodeError("Invalid passcode. Please request the authorization key from Corner Streams Admin.");
+    }
+  };
+
   // WhatsApp Onboarding Secure Code verification fields
   const [loginMode, setLoginMode] = useState<'credentials' | 'whatsapp'>('credentials');
   const [whatsappLoginId, setWhatsappLoginId] = useState("");
   const [whatsappLoginCode, setWhatsappLoginCode] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [popupBlockedNotice, setPopupBlockedNotice] = useState(false);
+  const [showDemoPanel, setShowDemoPanel] = useState(false);
 
-  // Demo accounts for reference
-  const DEMO_ACCOUNTS = [
-    {
-      roleName: "Super Admin (Corner Streams)",
-      email: "mervyn@cornernerstreams.com",
-      label: "Mervyndean Hilary",
-      profileId: "usr-admin-1",
-      className: "col-span-2 border-indigo-200 bg-indigo-50/40"
-    },
-    {
-      roleName: "School Admin (Principal)",
-      email: "principal@cornerstreams.edu",
-      label: "Dr. David K. Macaulay",
-      profileId: "usr-school-admin-1",
-      className: "col-span-1 border-slate-200 bg-slate-50"
-    },
-    {
-      roleName: "Class Teacher",
-      email: "f.adebayo@cornerstreams.edu",
-      label: "Mrs. Folasade Adebayo",
-      profileId: "usr-tch-1",
-      className: "col-span-1 border-slate-200 bg-slate-50"
-    },
-    {
-      roleName: "Parent",
-      email: "alaobenson@gmail.com",
-      label: "Chief Alao Benson",
-      profileId: "usr-par-1",
-      className: "col-span-1 border-slate-200 bg-slate-50"
-    },
-    {
-      roleName: "Student",
-      email: "folasade@cornerstreams.edu",
-      label: "Folasade Amira Adekunle",
-      profileId: "usr-stu-1",
-      className: "col-span-1 border-slate-200 bg-slate-50"
+  const handleQuickStreamLogin = (account: typeof STREAM_TEST_ACCOUNTS[0]) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setLoginMode('credentials');
+    toast.success(`Streaming into ${account.streamTitle} (${account.userName})...`);
+    
+    // Find matching user profile
+    let profile = mockUsers.find(
+      u => u.email?.toLowerCase() === account.email.toLowerCase()
+    );
+    if (!profile) {
+      profile = mockUsers.find(u => u.role === account.role);
     }
-  ];
+    if (profile) {
+      setLoading(true);
+      setTimeout(() => {
+        onLoginSuccess(profile!);
+        setLoading(false);
+      }, 450);
+    }
+  };
 
-  const SUBSCRIPTION_DEMOS = [
-    {
-      roleName: "CBT Essentials Only",
-      email: "cbt_only@cornerstreams.edu",
-      label: "CBT Only Portal",
-      profileId: "sub-cbt-1",
-      className: "border-emerald-200 bg-emerald-50/30 hover:bg-emerald-50/50"
-    },
-    {
-      roleName: "Financial Ledger Only",
-      email: "ledger_only@cornerstreams.edu",
-      label: "Ledgers Only Portal",
-      profileId: "sub-ledger-1",
-      className: "border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50/50"
-    },
-    {
-      roleName: "Digital Reports Only",
-      email: "reports_only@cornerstreams.edu",
-      label: "Gradebook Only Portal",
-      profileId: "sub-reports-1",
-      className: "border-purple-200 bg-purple-50/30 hover:bg-purple-50/50"
-    },
-    {
-      roleName: "Unified Enterprise Suite",
-      email: "enterprise@cornerstreams.edu",
-      label: "All Modules Enabled",
-      profileId: "sub-enterprise-1",
-      className: "border-slate-300 bg-slate-100/50 hover:bg-slate-100"
-    }
-  ];
+  const handleFillCredentials = (account: typeof STREAM_TEST_ACCOUNTS[0], e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEmail(account.email);
+    setPassword(account.password);
+    setLoginMode('credentials');
+    toast.info(`Pre-filled credentials for ${account.streamTitle}`);
+  };
 
-  const handleDemoSelect = (demo: any) => {
-    setEmail(demo.email);
-    if (demo.email === "mervyn@cornernerstreams.com") {
-      setPassword("Thriller10@");
-    } else {
-      setPassword("Demo@123");
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      setPopupBlockedNotice(false);
+      const { user, profile } = await signInWithGoogle();
+      toast.success(`Authenticated with Google via Firebase! Welcome ${profile.fullName || user.email}.`);
+      onLoginSuccess(profile);
+    } catch (error: any) {
+      console.warn("Firebase Google Sign-In notification:", error?.code || error?.message);
+      if (error?.code === 'auth/popup-blocked' || error?.message?.includes('popup-blocked')) {
+        setPopupBlockedNotice(true);
+        toast.error("Google Sign-In popup was blocked by the browser. Please sign in below using your login email & password, or open the app in a new window.");
+      } else if (error?.code === 'auth/popup-closed-by-user') {
+        toast.info("Google Sign-In popup was closed before completion.");
+      } else if (error?.code === 'auth/cancelled-popup-request') {
+        // Ignored duplicate request
+      } else {
+        toast.error(error.message || "Failed to authenticate with Google. Please use email & password sign-in below.");
+      }
+    } finally {
+      setGoogleLoading(false);
     }
-    toast.success(`Selected demo role: ${demo.roleName}`);
   };
 
   const handleFormLogin = (e: React.FormEvent) => {
@@ -381,6 +463,58 @@ export default function LoginPage({ onLoginSuccess, onChangeView }: LoginProps) 
             </p>
           </div>
 
+            {/* Google Sign-in with Firebase Auth */}
+          <div className="mb-5">
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading || loading}
+              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-slate-700 font-bold py-2.5 px-4 border border-slate-300 hover:border-slate-400 rounded-xl shadow-xs transition duration-200 cursor-pointer text-xs disabled:opacity-50"
+            >
+              {googleLoading ? (
+                <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.02 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                  />
+                </svg>
+              )}
+              <span>{googleLoading ? "Signing in with Google..." : "Continue with Google"}</span>
+            </button>
+
+            {popupBlockedNotice && (
+              <div className="mt-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-left">
+                <p className="text-[11px] font-bold text-amber-900 leading-snug">
+                  Browser popup blocked.
+                </p>
+                <p className="text-[10px] text-amber-800 font-medium mt-0.5 leading-normal">
+                  Your browser prevented the Google Sign-In popup from opening. Please enable popups for this site, or continue below with Password Sign In or WhatsApp Code.
+                </p>
+              </div>
+            )}
+
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="border-t border-slate-200 w-full" />
+              <span className="bg-white px-2.5 text-[10px] uppercase font-bold text-slate-400 tracking-wider absolute">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
           {/* Custom Dual Mode Toggle Tabs */}
           <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 border border-slate-200/60 rounded-xl mb-5 text-[9.5px] font-black uppercase tracking-wider">
             <button
@@ -523,59 +657,115 @@ export default function LoginPage({ onLoginSuccess, onChangeView }: LoginProps) 
             </form>
           )}
 
-          {/* Quick authentication demo profiles */}
-          <div className="mt-8 pt-6 border-t border-slate-150 space-y-5">
-            <div>
-              <h4 className="text-[9px] font-black uppercase text-slate-500 tracking-wider text-center mb-3">
-                Audit & Impersonation Console Keys
-              </h4>
-              <div className="grid grid-cols-2 gap-2">
-                {DEMO_ACCOUNTS.map((demo) => (
-                  <button
-                    key={demo.profileId}
-                    onClick={() => handleDemoSelect(demo)}
-                    type="button"
-                    className={`text-left p-2.5 rounded-lg border hover:border-indigo-500/50 hover:bg-indigo-50/20 cursor-pointer text-[10px] space-y-1 transition-all active:scale-[0.98] ${demo.className}`}
-                  >
-                    <div className="font-extrabold text-slate-800 truncate">{demo.roleName}</div>
-                    <div className="font-mono text-[9px] text-indigo-600 font-extrabold truncate">{demo.label}</div>
-                  </button>
-                ))}
+          {/* Dummy Login Details for Every Stream (Testing Console) */}
+          <div className="mt-6 pt-5 border-t border-slate-150">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-[10px] font-black uppercase text-slate-700 tracking-wider">
+                  Test Credentials (Every Stream)
+                </span>
               </div>
+              <button
+                type="button"
+                onClick={handleToggleDemoAccess}
+                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition"
+              >
+                <span>{isDemoUnlocked ? "Lock / Hide" : "Show"}</span>
+                {isDemoUnlocked ? <Lock size={11} className="text-emerald-600" /> : <Lock size={11} className="text-indigo-600" />}
+              </button>
             </div>
 
-            <div>
-              <div className="h-[1px] bg-slate-150 w-full mb-3" />
-              <h4 className="text-[9px] font-black uppercase text-emerald-600 tracking-wider text-center mb-3 flex items-center justify-center gap-1">
-                <span>🛡️</span> Subscription Testing Gateways
-              </h4>
-              <div className="grid grid-cols-2 gap-2">
-                {SUBSCRIPTION_DEMOS.map((demo) => (
-                  <button
-                    key={demo.profileId}
-                    onClick={() => handleDemoSelect(demo)}
-                    type="button"
-                    className={`text-left p-2.5 rounded-lg border hover:border-indigo-500/50 hover:bg-indigo-50/20 cursor-pointer text-[10px] space-y-1 transition-all active:scale-[0.98] ${demo.className}`}
-                  >
-                    <div className="font-extrabold text-slate-800 truncate leading-tight">{demo.roleName}</div>
-                    <div className="font-mono text-[8.5px] text-emerald-600 font-extrabold truncate leading-none">{demo.email}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
+            {!isDemoUnlocked && (
+              <p className="text-[9.5px] text-slate-500 italic mt-0.5">
+                Stream test accounts are protected. Click <strong>Show</strong> and enter the Admin authorization key to unlock.
+              </p>
+            )}
 
-            <p className="text-[9px] text-center text-slate-500 font-medium leading-relaxed">
-              Selecting any account automatically pre-fills standard credentials. Click "Stream" to log in and observe the live dashboard filtering.
-            </p>
+            <AnimatePresence>
+              {isDemoUnlocked && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-2 overflow-hidden"
+                >
+                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-2.5">
+                    Click <strong className="text-emerald-600">1-Click Stream</strong> to test any stream portal immediately, or <strong className="text-indigo-600">Fill</strong> to populate the form fields.
+                  </p>
+
+                  <div className="space-y-2">
+                    {STREAM_TEST_ACCOUNTS.map((acc) => {
+                      const IconComp = acc.icon;
+                      return (
+                        <div
+                          key={acc.id}
+                          className={`p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 transition-all ${acc.activeColor} text-left flex flex-col gap-1.5`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className={`p-1 rounded-md border text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${acc.badgeColor}`}>
+                                <IconComp size={10} className="shrink-0" />
+                                <span>{acc.streamTitle}</span>
+                              </span>
+                              <span className="text-xs font-black text-slate-800 truncate">
+                                {acc.userName}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => handleFillCredentials(acc, e)}
+                                title="Pre-fill email & password"
+                                className="px-2 py-1 bg-white hover:bg-slate-100 text-indigo-700 border border-slate-200 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-2xs active:scale-95"
+                              >
+                                Fill
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickStreamLogin(acc)}
+                                title="Instantly log in to test this stream"
+                                className="px-2.5 py-1 bg-gradient-to-r from-indigo-700 to-emerald-600 hover:brightness-110 text-white rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-2xs flex items-center gap-1 active:scale-95"
+                              >
+                                <Zap size={10} />
+                                <span>1-Click Stream</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9.5px] font-mono text-slate-600 bg-white/80 px-2 py-1 rounded-lg border border-slate-150">
+                            <div className="flex items-center gap-1 truncate">
+                              <span className="text-slate-400 font-sans font-bold text-[8.5px] uppercase">ID/Email:</span>
+                              <span className="font-bold text-slate-800">{acc.email}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-slate-400 font-sans font-bold text-[8.5px] uppercase">Pass:</span>
+                              <span className="font-bold text-emerald-700">{acc.password}</span>
+                            </div>
+                          </div>
+
+                          <p className="text-[9px] text-slate-500 font-medium leading-tight line-clamp-1">
+                            {acc.description}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div className="mt-6 text-center text-xs text-slate-600">
+          {/* Onboarding Navigation Link */}
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center text-xs text-slate-600">
             School not onboarded?{" "}
             <button
+              type="button"
               onClick={() => onChangeView('register')}
               className="text-emerald-600 font-bold hover:underline cursor-pointer"
             >
-              Get Started (Onboarding)
+              Get Started (Onboard Your School)
             </button>
           </div>
         </motion.div>
@@ -583,8 +773,80 @@ export default function LoginPage({ onLoginSuccess, onChangeView }: LoginProps) 
 
       {/* Footer */}
       <div className="max-w-[1600px] mx-auto w-full px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-500 border-t border-slate-200">
-        <div>Copyright ©️ 2026 cornerstreams@gmail.com</div>
+        <div>© 2026 Corner Streams. All rights reserved.</div>
       </div>
+
+      {/* ADMIN PASSCODE CHECK MODAL FOR STREAM TEST CREDENTIALS */}
+      <AnimatePresence>
+        {showPasscodeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-sm shadow-2xl text-left"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded-xl border border-indigo-200 dark:border-indigo-800">
+                  <Lock size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    Admin Authorization
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Enter access passcode to view test credentials.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleVerifyPasscode} className="space-y-3 mt-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
+                    Passcode
+                  </label>
+                  <input
+                    type="password"
+                    autoFocus
+                    required
+                    placeholder="Enter Passcode (e.g. 12345)"
+                    value={demoPasscode}
+                    onChange={(e) => {
+                      setDemoPasscode(e.target.value);
+                      setPasscodeError("");
+                    }}
+                    className="w-full text-center text-sm font-mono tracking-[0.25em] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 font-bold"
+                  />
+                  {passcodeError && (
+                    <p className="text-[10px] text-rose-500 font-medium mt-1">
+                      {passcodeError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasscodeModal(false);
+                      setPasscodeError("");
+                    }}
+                    className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-gradient-to-r from-indigo-700 to-emerald-600 hover:brightness-110 text-white text-xs font-black uppercase tracking-wider rounded-xl transition cursor-pointer shadow-sm"
+                  >
+                    Unlock
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
