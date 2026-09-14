@@ -11,6 +11,7 @@ import {
 import { mockUsers } from "../mockData";
 import { UserProfile } from "../types";
 import { signInWithGoogle } from "../lib/firebase";
+import { dispatchPageViewNotification } from "../lib/notifications";
 
 interface LoginProps {
   onLoginSuccess: (profile: UserProfile) => void;
@@ -91,6 +92,10 @@ export default function LoginPage({ onLoginSuccess, onChangeView }: LoginProps) 
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    dispatchPageViewNotification("Sign In & Authentication Portal");
+  }, []);
 
   // Passcode protection state for Stream test credentials
   const [isDemoUnlocked, setIsDemoUnlocked] = useState(false);
@@ -428,7 +433,7 @@ export default function LoginPage({ onLoginSuccess, onChangeView }: LoginProps) 
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between text-slate-800 selection:bg-emerald-500 selection:text-white relative font-sans">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-50 flex flex-col justify-between text-slate-800 selection:bg-emerald-500 selection:text-white relative font-sans w-full max-w-full overflow-x-hidden viewport-fit-screen">
       {/* Background accents */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-indigo-100/50 via-transparent to-transparent -z-10" />
       <div className="absolute top-20 right-20 w-80 h-80 bg-indigo-500/5 rounded-full blur-[100px] -z-10" />

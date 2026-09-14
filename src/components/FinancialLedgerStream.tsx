@@ -8,6 +8,11 @@ import {
   LedgerType
 } from '../types';
 import { mockLedgerEntries } from '../mockData';
+import { 
+  acquireGoogleWorkspaceToken, 
+  exportFinancialAuditToGoogleSheet, 
+  getCachedGoogleAccessToken 
+} from '@/lib/googleWorkspace';
 import {
   Landmark,
   TrendingUp,
@@ -916,6 +921,50 @@ export default function FinancialLedgerStream({
     toast.success('📥 Official Financial Audit Vault CSV report generated & downloaded successfully!');
   };
 
+  const [isExportingAuditToSheets, setIsExportingAuditToSheets] = useState(false);
+
+  // Export Financial Statements directly to Google Sheets
+  const handleExportAuditVaultGoogleSheets = async () => {
+    setIsExportingAuditToSheets(true);
+    try {
+      let token = getCachedGoogleAccessToken();
+      if (!token) {
+        toast.info("Connecting to Google Account for Sheets export...");
+        token = await acquireGoogleWorkspaceToken();
+      }
+
+      toast.loading("Creating Financial Audit Google Sheet in Drive...", { id: "fin-sheet-export" });
+
+      const result = await exportFinancialAuditToGoogleSheet(
+        activeStatementData.termLabel,
+        {
+          grossInflow: activeStatementData.grossInflow,
+          totalOutflow: activeStatementData.totalOutflow,
+          netSurplus: activeStatementData.netSurplus,
+          bankCashReserves: activeStatementData.bankCashReserves,
+          accountsReceivable: activeStatementData.accountsReceivable,
+          cbtFixedAssets: activeStatementData.cbtFixedAssets
+        },
+        departmentalBudgetData,
+        multiTermAuditData,
+        token
+      );
+
+      toast.dismiss("fin-sheet-export");
+      toast.success("Institutional Financial Audit exported to Google Sheets!");
+
+      if (result.spreadsheetUrl) {
+        window.open(result.spreadsheetUrl, "_blank");
+      }
+    } catch (err: any) {
+      console.error("Financial Google Sheets export error:", err);
+      toast.dismiss("fin-sheet-export");
+      toast.error(err.message || "Failed to export financial statements to Google Sheets.");
+    } finally {
+      setIsExportingAuditToSheets(false);
+    }
+  };
+
   // Handle Verify Receipt
   const handleVerifyReceipt = (receiptId: string, action: 'Verified' | 'Flagged') => {
     let verifiedItem: any = null;
@@ -1070,6 +1119,20 @@ export default function FinancialLedgerStream({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            disabled={isExportingAuditToSheets}
+            onClick={handleExportAuditVaultGoogleSheets}
+            className="px-3.5 py-2 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            title="Export Institutional Audit & Cash Flows directly to Google Sheets"
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+              <path fill="#FFF" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+              <path fill="#0F9D58" d="M14 6H7v12h10V9l-3-3zm-1 3.5V7.5L15.5 10H13zM9 13h6v1.5H9V13zm0-2h6v1.5H9V11zm0 4h4v1.5H9V15z"/>
+            </svg>
+            <span>{isExportingAuditToSheets ? "Syncing Sheets..." : "Export to Google Sheets"}</span>
+            {isExportingAuditToSheets && <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />}
+          </button>
           <button
             type="button"
             onClick={handleGenerateBoardPDFReport}

@@ -41,6 +41,7 @@ import {
   ArrowRightLeft
 } from "lucide-react";
 import { toast } from "sonner";
+import { dispatchUserRegistrationNotification } from "../lib/notifications";
 import { UserProfile, UserRole, SchoolArmType, AuditLogEntry, AuditActionType, AuditCategory } from "../types";
 import { mockUsers } from "../mockData";
 
@@ -418,6 +419,16 @@ export default function AccountDirectoryManager({
     };
 
     setUsers([newUserObj, ...users]);
+
+    // Dispatch real-time user registration notification and record lead
+    dispatchUserRegistrationNotification({
+      fullName: newFullName.trim(),
+      role: newRole,
+      email: newEmail.trim() || `${newUsername.trim().toLowerCase()}@cornerstreams.ng`,
+      phone: newPhone.trim() || undefined,
+      schoolName: localStorage.getItem("CS_SCHOOL") ? JSON.parse(localStorage.getItem("CS_SCHOOL") || "{}").name : "Corner Streams Institutional Network",
+      schoolId: localStorage.getItem("CS_SCHOOL") ? JSON.parse(localStorage.getItem("CS_SCHOOL") || "{}").id : undefined,
+    });
 
     // Record Audit Log Entry
     logAuditEvent(

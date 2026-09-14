@@ -184,7 +184,7 @@ export const BrandLogo: React.FC<FullLogoProps> = ({ className = '', size = 48, 
       className={`inline-flex items-center select-none transition-all duration-300 hover:scale-[1.01] ${
         hideText 
           ? 'p-0.5 rounded-lg' 
-          : `gap-3.5 px-4 py-2 rounded-xl border ${
+          : `gap-2 sm:gap-3.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl border ${
               darkTheme 
                 ? 'bg-slate-950/95 border-indigo-900/50 shadow-lg' 
                 : 'bg-white border-slate-200 shadow-md'
@@ -199,10 +199,10 @@ export const BrandLogo: React.FC<FullLogoProps> = ({ className = '', size = 48, 
 
       {!hideText && (
         /* Company Tagline & Typography */
-        <div className="flex flex-col text-left">
+        <div className="flex flex-col text-left min-w-0">
           <div className="flex items-baseline leading-none">
             <span 
-              className={`font-black tracking-tight text-xl leading-none md:text-2.5xl ${
+              className={`font-black tracking-tight text-lg sm:text-xl leading-none md:text-2.5xl ${
                 darkTheme ? 'text-white' : 'text-indigo-950'
               }`}
               style={{ fontFamily: '"Montserrat", "Poppins", sans-serif' }}
@@ -210,7 +210,7 @@ export const BrandLogo: React.FC<FullLogoProps> = ({ className = '', size = 48, 
               Corner
             </span>
             <span 
-              className="font-black tracking-tight text-xl leading-none md:text-2.5xl text-emerald-500"
+              className="font-black tracking-tight text-lg sm:text-xl leading-none md:text-2.5xl text-emerald-500"
               style={{ fontFamily: '"Montserrat", "Poppins", sans-serif' }}
             >
               Streams

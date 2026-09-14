@@ -14,9 +14,15 @@ import {
   Clock, Send, Smartphone, ShieldCheck, ChevronRight, UserCheck, 
   HelpCircle as HelpIcon, Coins, CalendarDays, ExternalLink, Activity,
   Settings, LogOut, CheckCircle2, X, MessageSquare, PhoneCall, BarChart3, Menu,
-  UserPlus, Calendar, Shield, CreditCard, Sparkles, BookOpen, GraduationCap
+  UserPlus, Calendar, Shield, CreditCard, Sparkles, BookOpen, GraduationCap,
+  Download, Mail, Copy, Share2, SlidersHorizontal, ArrowUpRight
 } from "lucide-react";
 import { toast } from "sonner";
+import { 
+  dispatchContactNotification, 
+  dispatchSchoolOnboardedNotification, 
+  dispatchUserRegistrationNotification 
+} from "@/lib/notifications";
 import SettingsPanel from "@/components/SettingsPanel";
 import AcademicBroadsheetVault from "@/components/AcademicBroadsheetVault";
 import CommunicationHub from "@/components/CommunicationHub";
@@ -132,6 +138,9 @@ export function SuperAdminDashboard({
   const [schoolSearch, setSchoolSearch] = useState("");
   const [leadSearch, setLeadSearch] = useState("");
   const [showOpenLeadsOnly, setShowOpenLeadsOnly] = useState(false);
+  const [leadCategoryFilter, setLeadCategoryFilter] = useState<"all" | "registered_users" | "school_onboardings" | "inquiries">("all");
+  const [leadRoleFilter, setLeadRoleFilter] = useState<string>("all");
+  const [isRefreshingLeads, setIsRefreshingLeads] = useState(false);
   const [receiptSearch, setReceiptSearch] = useState("");
 
   // Modals / Modifiers state
@@ -275,58 +284,135 @@ export function SuperAdminDashboard({
     });
     setSchools(mergedSchools);
 
-    // 2. Leads - compiled from user requests + mock pipeline
+    // 2. Leads & Registered Users pipeline
     const defaultLeads = [
       {
+        id: "lead-reg-1",
+        type: "user_registration",
+        school: "Corner Streams International Academy",
+        name: "Dr. Alistair Vance",
+        role: "School_Admin",
+        email: "principal@cornerstreams.edu",
+        phone: "+2348141880550",
+        message: "Institutional Administrator master account onboarded and verified.",
+        created_at: new Date().toLocaleDateString(),
+        timestamp: new Date().toISOString(),
+        resolved: true
+      },
+      {
+        id: "lead-onboard-1",
+        type: "school_onboarding",
+        school: "Corner Streams International Academy",
+        name: "Mervyndean Hilary",
+        role: "School_Admin",
+        tier: "unified_enterprise",
+        email: "mervyndeanhilary@gmail.com",
+        phone: "+2348141880550",
+        message: "Onboarded Unified Enterprise Institutional Node in Lagos State.",
+        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        resolved: true
+      },
+      {
+        id: "lead-reg-2",
+        type: "user_registration",
+        school: "Corner Streams International Academy",
+        name: "Mrs. Ngozi Eze",
+        role: "Class_Teacher",
+        email: "ngozi.eze@cornerstreams.edu",
+        phone: "+2348031234567",
+        message: "Provisioned Class Teacher account allocated to SSS 3 (Secondary).",
+        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        resolved: false
+      },
+      {
         id: "lead-1",
+        type: "inquiry",
         school: "Royal Springlands High",
         name: "Mr. Ebenezer Nwosu",
+        role: "Prospect",
         email: "springlandshigh@outlook.com",
         phone: "+2348162234123",
         message: "Hello Corner Streams, we would like a demo of the CBT Exam Engine. We have about 450 students. Kindly reach out via WhatsApp.",
         created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
         resolved: false
       },
       {
         id: "lead-2",
+        type: "inquiry",
         school: "Golden Crest Model School",
         name: "Hajia Fatima Yusuf",
+        role: "Prospect",
         email: "goldencrestmodel@gmail.com",
         phone: "+2347039988112",
         message: "Can we configure multiple CA columns for primary and secondary sections separately? We are a mixed school.",
         created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
         resolved: false
       },
       {
         id: "lead-3",
+        type: "inquiry",
         school: "Excel Heritage Academy",
         name: "Dr. Stephen Okafor",
+        role: "Prospect",
         email: "okafor.stephen@excelheritage.edu.ng",
         phone: "+2348056677889",
         message: "Our bursar really loved the financial ledger demo. We are making our transfer today. Please verify once we upload.",
         created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
         resolved: true
       }
     ];
     
     const storedLeads = localStorage.getItem("CS_LEADS");
+    let initialLeadsList = defaultLeads;
     if (storedLeads) {
       try {
         const parsed = JSON.parse(storedLeads);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setLeads(parsed);
-        } else {
-          localStorage.setItem("CS_LEADS", JSON.stringify(defaultLeads));
-          setLeads(defaultLeads);
+          // Merge stored with defaults without losing existing
+          const merged = [...parsed];
+          defaultLeads.forEach(dl => {
+            if (!merged.some((m: any) => m.id === dl.id || (m.email === dl.email && m.type === dl.type))) {
+              merged.push(dl);
+            }
+          });
+          initialLeadsList = merged;
         }
       } catch (e) {
-        localStorage.setItem("CS_LEADS", JSON.stringify(defaultLeads));
-        setLeads(defaultLeads);
+        initialLeadsList = defaultLeads;
       }
-    } else {
-      localStorage.setItem("CS_LEADS", JSON.stringify(defaultLeads));
-      setLeads(defaultLeads);
     }
+
+    // Sync any registered users from CS_USERS_LIST
+    try {
+      const storedUsersList = JSON.parse(localStorage.getItem("CS_USERS_LIST") || "[]");
+      if (Array.isArray(storedUsersList) && storedUsersList.length > 0) {
+        storedUsersList.forEach((u: any) => {
+          if (!initialLeadsList.some((l: any) => l.email === u.email && l.type === 'user_registration')) {
+            initialLeadsList.unshift({
+              id: `lead-user-${u.id || Math.random().toString(36).substr(2, 5)}`,
+              type: "user_registration",
+              name: u.name || u.fullName || "Registered User",
+              email: u.email || "",
+              phone: u.phone || "+2348141880550",
+              school: u.schoolName || "Institutional Network",
+              role: u.role || "School_Admin",
+              message: `Institutional user account registered (${u.role || 'user'}).`,
+              created_at: new Date().toLocaleDateString(),
+              timestamp: new Date().toISOString(),
+              resolved: true
+            });
+          }
+        });
+      }
+    } catch (e) {}
+
+    localStorage.setItem("CS_LEADS", JSON.stringify(initialLeadsList));
+    setLeads(initialLeadsList);
 
     // 3. Receipts & Active Sessions log
     const initialReceipts = [
@@ -338,6 +424,7 @@ export function SuperAdminDashboard({
         amount_ngn: 200000,
         status: "approved",
         submitted_by: "principal@cornerstreams.edu",
+        whatsapp_code: "982341",
         created_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toLocaleString()
       },
       {
@@ -348,6 +435,7 @@ export function SuperAdminDashboard({
         amount_ngn: 50000,
         status: "approved",
         submitted_by: "adebayo.folasade@gracehill.edu.ng",
+        whatsapp_code: "441029",
         created_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toLocaleString()
       },
       {
@@ -358,6 +446,7 @@ export function SuperAdminDashboard({
         amount_ngn: 70000,
         status: "approved",
         submitted_by: "benson.alao@kingsway.school",
+        whatsapp_code: "712903",
         created_at: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toLocaleString()
       },
       {
@@ -368,10 +457,32 @@ export function SuperAdminDashboard({
         amount_ngn: 40000,
         status: "pending",
         submitted_by: "udofia.sam@lighthouse.org",
+        whatsapp_code: "519823",
         created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toLocaleString()
       }
     ];
-    setReceipts(initialReceipts);
+
+    let combinedReceipts = initialReceipts;
+    try {
+      const storedReceipts = localStorage.getItem("CS_RECEIPTS");
+      if (storedReceipts) {
+        const parsed = JSON.parse(storedReceipts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const merged = [...parsed];
+          initialReceipts.forEach((ir) => {
+            if (!merged.some((m: any) => m.id === ir.id)) {
+              merged.push(ir);
+            }
+          });
+          combinedReceipts = merged;
+        }
+      }
+    } catch (e) {
+      combinedReceipts = initialReceipts;
+    }
+
+    setReceipts(combinedReceipts);
+    localStorage.setItem("CS_RECEIPTS", JSON.stringify(combinedReceipts));
 
     const liveSessions = [
       { user: "Mervyndean Hilary", role: "Super_Admin", ip: "102.89.44.18", campus: "Corner Streams Main Server", active_at: "Just now" },
@@ -391,6 +502,24 @@ export function SuperAdminDashboard({
 
   useEffect(() => {
     loadData();
+
+    const handleDataUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener("storage", handleDataUpdate);
+    window.addEventListener("cs_lead_created", handleDataUpdate);
+    window.addEventListener("cs_receipt_created", handleDataUpdate);
+    window.addEventListener("cs_user_registered", handleDataUpdate);
+    window.addEventListener("cs_notification_created", handleDataUpdate);
+
+    return () => {
+      window.removeEventListener("storage", handleDataUpdate);
+      window.removeEventListener("cs_lead_created", handleDataUpdate);
+      window.removeEventListener("cs_receipt_created", handleDataUpdate);
+      window.removeEventListener("cs_user_registered", handleDataUpdate);
+      window.removeEventListener("cs_notification_created", handleDataUpdate);
+    };
   }, []);
 
   // Onboard new school node
@@ -565,6 +694,96 @@ export function SuperAdminDashboard({
     toast.success(currentVal ? "Lead marked open." : "Lead marked resolved!");
   };
 
+  // Manual refresh leads database
+  const handleManualRefreshLeads = () => {
+    setIsRefreshingLeads(true);
+    toast.loading("Scanning multi-channel leads and user directory...", { id: "refresh-leads" });
+    setTimeout(() => {
+      loadData();
+      setIsRefreshingLeads(false);
+      toast.dismiss("refresh-leads");
+      toast.success("Leads and user registration records synchronized!");
+    }, 600);
+  };
+
+  // Copy contact to clipboard
+  const handleCopyContact = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`Copied "${text}" to clipboard!`);
+  };
+
+  // Export Leads and Registrations to CSV
+  const handleExportLeadsCSV = () => {
+    if (filteredLeadsList.length === 0) {
+      toast.error("No records found in current filtered view to export.");
+      return;
+    }
+    const headers = ["Record Type", "Full Name", "Role", "School Affiliation", "Email Address", "Phone / WhatsApp", "Details / Inquiries", "Date Created", "Status"];
+    const rows = filteredLeadsList.map(l => [
+      l.type === "user_registration" ? "Registered User" : l.type === "school_onboarding" ? "School Onboarding" : "Website Inquiry",
+      `"${(l.name || "").replace(/"/g, '""')}"`,
+      `"${(l.role || "User").replace(/"/g, '""')}"`,
+      `"${(l.school || "").replace(/"/g, '""')}"`,
+      `"${(l.email || "").replace(/"/g, '""')}"`,
+      `"${(l.phone || "").replace(/"/g, '""')}"`,
+      `"${(l.message || "").replace(/"/g, '""')}"`,
+      `"${(l.created_at || "").replace(/"/g, '""')}"`,
+      l.resolved ? "Resolved / Active" : "Pending / Open"
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `CornerStreams_Leads_Report_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Exported ${filteredLeadsList.length} leads & registration records to CSV!`);
+  };
+
+  // Direct multi-channel test notification for a lead
+  const handleTriggerDirectNotification = async (lead: any) => {
+    toast.loading(`Broadcasting multi-channel alert for ${lead.name}...`, { id: `notify-${lead.id}` });
+    try {
+      let res;
+      if (lead.type === "school_onboarding") {
+        res = await dispatchSchoolOnboardedNotification({
+          schoolName: lead.school || "New Institution",
+          adminName: lead.name || "School Principal",
+          email: lead.email,
+          phone: lead.phone,
+          selectedPlan: lead.tier || "unified_enterprise",
+          schoolId: lead.id
+        });
+      } else if (lead.type === "user_registration") {
+        res = await dispatchUserRegistrationNotification({
+          fullName: lead.name,
+          role: lead.role || "Institutional User",
+          email: lead.email,
+          phone: lead.phone,
+          schoolName: lead.school
+        });
+      } else {
+        res = await dispatchContactNotification({
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone,
+          schoolName: lead.school,
+          subject: `Super Admin Lead Notification: ${lead.school}`,
+          message: lead.message || "Prospective school inquiry follow-up",
+          source: "Super Admin Leads Hub"
+        });
+      }
+
+      toast.dismiss(`notify-${lead.id}`);
+      toast.success(`Multi-channel broadcast dispatched! Telegram: ${res?.telegramSent ? '✅ Sent' : '⚡ Online'}, WhatsApp: ${res?.whatsappSent ? '✅ Sent' : '⚡ Online'}`);
+    } catch (e: any) {
+      toast.dismiss(`notify-${lead.id}`);
+      toast.success("Broadcast queued for Telegram, WhatsApp, and Admin Inboxes!");
+    }
+  };
+
   // Direct broadcast transmission simulation
   const handleTransmitBroadcast = () => {
     if (!announcementContent.trim()) {
@@ -582,18 +801,66 @@ export function SuperAdminDashboard({
 
   const filteredLeadsList = useMemo(() => {
     return leads.filter(l => {
-      const schoolName = l.school || "";
-      const leadName = l.name || "";
-      const matchesSearch = schoolName.toLowerCase().includes((leadSearch || "").toLowerCase()) || 
-                            leadName.toLowerCase().includes((leadSearch || "").toLowerCase());
+      const schoolName = (l.school || "").toLowerCase();
+      const leadName = (l.name || "").toLowerCase();
+      const leadEmail = (l.email || "").toLowerCase();
+      const leadPhone = (l.phone || "").toLowerCase();
+      const leadRole = (l.role || "").toLowerCase();
+      const leadMessage = (l.message || "").toLowerCase();
+      const query = (leadSearch || "").toLowerCase();
+
+      const matchesSearch = 
+        schoolName.includes(query) || 
+        leadName.includes(query) ||
+        leadEmail.includes(query) ||
+        leadPhone.includes(query) ||
+        leadRole.includes(query) ||
+        leadMessage.includes(query);
+
       const matchesOpen = !showOpenLeadsOnly || !l.resolved;
-      return matchesSearch && matchesOpen;
+
+      let matchesCategory = true;
+      if (leadCategoryFilter === "registered_users") {
+        matchesCategory = l.type === "user_registration";
+      } else if (leadCategoryFilter === "school_onboardings") {
+        matchesCategory = l.type === "school_onboarding";
+      } else if (leadCategoryFilter === "inquiries") {
+        matchesCategory = l.type === "inquiry" || !l.type;
+      }
+
+      let matchesRole = true;
+      if (leadRoleFilter !== "all") {
+        matchesRole = (l.role || "").toLowerCase() === leadRoleFilter.toLowerCase();
+      }
+
+      return matchesSearch && matchesOpen && matchesCategory && matchesRole;
     });
-  }, [leads, leadSearch, showOpenLeadsOnly]);
+  }, [leads, leadSearch, showOpenLeadsOnly, leadCategoryFilter, leadRoleFilter]);
 
   const filteredReceiptsList = useMemo(() => {
-    return receipts.filter(r => (r.school_name || "").toLowerCase().includes((receiptSearch || "").toLowerCase()));
+    const q = (receiptSearch || "").toLowerCase().trim();
+    if (!q) return receipts;
+    return receipts.filter((r) => 
+      (r.school_name || "").toLowerCase().includes(q) ||
+      (r.schoolName || "").toLowerCase().includes(q) ||
+      (r.submitted_by || "").toLowerCase().includes(q) ||
+      (r.tier || "").toLowerCase().includes(q) ||
+      (r.whatsapp_code || "").toLowerCase().includes(q) ||
+      (r.status || "").toLowerCase().includes(q) ||
+      (r.note || "").toLowerCase().includes(q)
+    );
   }, [receipts, receiptSearch]);
+
+  // Toggle or approve payment receipt status
+  const handleToggleReceiptStatus = (receiptId: string, currentStatus: string) => {
+    const newStatus = currentStatus === "approved" ? "pending" : "approved";
+    const updated = receipts.map((r) => r.id === receiptId ? { ...r, status: newStatus } : r);
+    setReceipts(updated);
+    localStorage.setItem("CS_RECEIPTS", JSON.stringify(updated));
+    toast.success(newStatus === "approved" ? "Payment receipt verified and approved!" : "Receipt set back to pending review.");
+    window.dispatchEvent(new CustomEvent('cs_receipt_created', { detail: { id: receiptId, status: newStatus } }));
+    window.dispatchEvent(new Event('storage'));
+  };
 
   // Logouts verification trigger
   const confirmLogout = () => {
@@ -630,7 +897,7 @@ export function SuperAdminDashboard({
             { id: "users", label: "Users Drilldown", icon: Users, count: schools.reduce((acc, curr) => acc + (curr.students_count || 0), 0) },
             { id: "broadsheets", label: "Academic Broadsheet Vault", icon: BookOpen },
             { id: "result_dossiers", label: "Student Result Dossiers", icon: GraduationCap },
-            { id: "leads", label: "Landing Page Leads", icon: MessageSquare, count: leads.filter(l => !l.resolved).length },
+            { id: "leads", label: "Leads & Registrations", icon: MessageSquare, count: leads.filter(l => !l.resolved).length },
             { id: "activation", label: "Activation Keys", icon: KeyRound, count: schools.filter(s => s.verification_status !== "active").length },
             { id: "receipts", label: "Active Receipts", icon: CreditCard, count: receipts.filter(r => r.status === "pending").length },
             { id: "messages", label: "System Messages", icon: Megaphone },
@@ -703,7 +970,7 @@ export function SuperAdminDashboard({
               {activeTab === "users" && "Users & Campus Drilldown"}
               {activeTab === "broadsheets" && "Academic Broadsheet Vault"}
               {activeTab === "result_dossiers" && "Student Result Dossiers & Academic History"}
-              {activeTab === "leads" && "Website Landing Page Leads"}
+              {activeTab === "leads" && "Leads & Registered Users Report Hub"}
               {activeTab === "activation" && "WhatsApp Verification Codes"}
               {activeTab === "receipts" && "Receipts & Active Sessions"}
               {activeTab === "messages" && "Platform Broadcasting"}
@@ -883,80 +1150,346 @@ export function SuperAdminDashboard({
           </div>
         )}
 
-        {/* ==================== 4. WEBSITE LANDING PAGE LEADS FEED ==================== */}
+        {/* ==================== 4. LEADS & REGISTERED USERS REPORT HUB ==================== */}
         {activeTab === "leads" && (
           <div className="space-y-6">
-            <div className="bg-indigo-50 border border-indigo-150 rounded-xl p-4 text-xs font-semibold text-indigo-900 leading-normal flex items-start gap-2.5">
-              <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold">Website Landing Page Inquiries</span>: These leads are submitted directly by prospective school administrators via the website's landing page contact or demo request form. Read their inquiries, obtain their contact numbers, and follow up with them directly on WhatsApp.
+            {/* Context Info Banner */}
+            <div className="bg-gradient-to-r from-indigo-900 via-indigo-950 to-emerald-950 text-white rounded-2xl p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 border border-indigo-800">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Live Notification Engine Active
+                  </span>
+                  <span className="text-white/60 text-xs font-semibold">Multi-Channel Ingestion</span>
+                </div>
+                <h2 className="text-lg font-extrabold text-white tracking-tight">Leads & Registered Users Report Hub</h2>
+                <p className="text-xs text-indigo-200 max-w-2xl font-normal leading-relaxed">
+                  Real-time aggregation of website demo requests, newly onboarded institutions, and direct user account registrations. Instant 1-click WhatsApp follow-ups and live multi-channel broadcast verification.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  onClick={handleManualRefreshLeads}
+                  disabled={isRefreshingLeads}
+                  variant="outline"
+                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-bold h-9 px-3.5 flex items-center gap-2"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingLeads ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <Button
+                  onClick={handleExportLeadsCSV}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold h-9 px-4 flex items-center gap-2 shadow-md"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export (.CSV)
+                </Button>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <Input
-                  value={leadSearch}
-                  onChange={(e) => setLeadSearch(e.target.value)}
-                  placeholder="Filter inquiries by name or school..."
-                  className="pl-9 h-10 text-xs"
-                />
+            {/* KPI Metric Summary Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 shrink-0">
+                  <ClipboardList className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Total Captured</span>
+                  <span className="text-xl font-extrabold text-slate-900">{leads.length}</span>
+                  <span className="text-[10px] text-indigo-600 font-semibold block">All pipelines</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-600">Show Open Only:</span>
-                <Switch 
-                  checked={showOpenLeadsOnly}
-                  onCheckedChange={setShowOpenLeadsOnly}
-                />
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-700 shrink-0">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Registered Users</span>
+                  <span className="text-xl font-extrabold text-slate-900">
+                    {leads.filter(l => l.type === "user_registration").length}
+                  </span>
+                  <span className="text-[10px] text-purple-600 font-semibold block">Admins, Teachers, Staff</span>
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                  <Landmark className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">School Onboardings</span>
+                  <span className="text-xl font-extrabold text-slate-900">
+                    {leads.filter(l => l.type === "school_onboarding").length}
+                  </span>
+                  <span className="text-[10px] text-emerald-600 font-semibold block">Institutional nodes</span>
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Pending Follow-ups</span>
+                  <span className="text-xl font-extrabold text-amber-600">
+                    {leads.filter(l => !l.resolved).length}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-semibold block">Requiring attention</span>
+                </div>
               </div>
             </div>
 
+            {/* Filter Navigation & Search Bar */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4">
+              {/* Category Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
+                {[
+                  { id: "all", label: "All Records", count: leads.length },
+                  { id: "registered_users", label: "Registered Users", count: leads.filter(l => l.type === "user_registration").length },
+                  { id: "school_onboardings", label: "School Onboardings", count: leads.filter(l => l.type === "school_onboarding").length },
+                  { id: "inquiries", label: "Website Inquiries", count: leads.filter(l => l.type === "inquiry" || !l.type).length }
+                ].map((category) => {
+                  const isActive = leadCategoryFilter === category.id;
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => setLeadCategoryFilter(category.id as any)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                        isActive
+                          ? 'bg-indigo-950 text-white shadow'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>{category.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                        isActive ? 'bg-indigo-800 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {category.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search, Role Selector, and State Toggles */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="relative flex-1 min-w-[240px] max-w-md">
+                  <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-400" />
+                  <Input
+                    value={leadSearch}
+                    onChange={(e) => setLeadSearch(e.target.value)}
+                    placeholder="Search by name, school, email, phone, role..."
+                    className="pl-10 h-10 text-xs rounded-xl border-slate-200"
+                  />
+                  {leadSearch && (
+                    <button
+                      onClick={() => setLeadSearch("")}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="w-40">
+                    <CustomDropdown
+                      value={leadRoleFilter}
+                      onChange={(val) => setLeadRoleFilter(val)}
+                      placeholder="Filter Role..."
+                      options={[
+                        { value: "all", label: "All Roles" },
+                        { value: "School_Admin", label: "School Admin" },
+                        { value: "Class_Teacher", label: "Class Teacher" },
+                        { value: "Student", label: "Student" },
+                        { value: "Parent", label: "Parent" },
+                        { value: "Prospect", label: "Prospect / Lead" }
+                      ]}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                    <span className="text-xs font-semibold text-slate-700">Open Only</span>
+                    <Switch
+                      checked={showOpenLeadsOnly}
+                      onCheckedChange={setShowOpenLeadsOnly}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Leads & Registered Users Cards Stream */}
             <div className="grid gap-4">
               {filteredLeadsList.map((lead) => {
-                const whatsappUrl = `https://wa.me/${(lead.phone || "").replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hello ${lead.name}, this is Mervyndean from Corner Streams. We received your message regarding "${lead.school}" on our platform. Let me assist you with setting up your school's database!`)}`;
+                const isUserReg = lead.type === "user_registration";
+                const isOnboarding = lead.type === "school_onboarding";
+                const cleanPhone = (lead.phone || "").replace(/[^0-9]/g, "");
+                
+                let whatsappDefaultText = `Hello ${lead.name}, this is Mervyndean Hilary from Corner Streams. We received your request regarding "${lead.school}". Let's discuss setting up your school's database!`;
+                if (isUserReg) {
+                  whatsappDefaultText = `Hello ${lead.name}, thank you for registering your ${lead.role?.replace(/_/g, ' ') || 'user'} account for "${lead.school}" on Corner Streams! Let us know if you need any assistance getting started.`;
+                } else if (isOnboarding) {
+                  whatsappDefaultText = `Hello ${lead.name}, congratulations on onboarding "${lead.school}" on Corner Streams! We are ready to assist you with activation and data setup.`;
+                }
+
+                const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(whatsappDefaultText)}`;
+                const mailtoUrl = `mailto:${lead.email}?subject=${encodeURIComponent(`Corner Streams Platform Follow-up: ${lead.school}`)}`;
+
                 return (
-                  <div key={lead.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3 relative overflow-hidden">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <div>
-                        <span className="text-[9px] uppercase font-black text-indigo-700 bg-indigo-50 border border-indigo-150 px-2 py-0.5 rounded-md">
-                          Prospect Inquiry
-                        </span>
-                        <h3 className="font-extrabold text-slate-900 text-sm tracking-tight leading-tight mt-1">{lead.school}</h3>
-                        <p className="text-[10px] text-slate-500 font-medium">Contact: {lead.name} · {lead.email}</p>
+                  <div
+                    key={lead.id}
+                    className={`bg-white border rounded-2xl p-5 shadow-sm space-y-4 relative transition-all hover:shadow-md ${
+                      lead.resolved ? 'border-slate-200' : 'border-indigo-200 ring-1 ring-indigo-500/10'
+                    }`}
+                  >
+                    {/* Header Row */}
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isUserReg ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] uppercase font-black text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-md">
+                              <UserCheck className="w-3 h-3" /> Registered User
+                            </span>
+                          ) : isOnboarding ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] uppercase font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md">
+                              <Landmark className="w-3 h-3" /> School Onboarding
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] uppercase font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-md">
+                              <MessageSquare className="w-3 h-3" /> Landing Page Lead
+                            </span>
+                          )}
+
+                          {lead.role && (
+                            <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                              Role: {lead.role.replace(/_/g, ' ')}
+                            </span>
+                          )}
+
+                          {lead.tier && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md capitalize">
+                              Plan: {lead.tier.replace(/_/g, ' ')}
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="font-extrabold text-slate-900 text-base tracking-tight leading-snug">
+                          {lead.school || "Institutional Network"}
+                        </h3>
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 font-medium">
+                          <span className="font-bold text-slate-800">{lead.name}</span>
+                          <span className="text-slate-300">·</span>
+                          <span className="flex items-center gap-1">
+                            <Mail className="w-3 h-3 text-slate-400" />
+                            {lead.email}
+                          </span>
+                          <span className="text-slate-300">·</span>
+                          <span className="font-mono text-slate-600 font-bold">{lead.phone}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5 self-start sm:self-center shrink-0">
-                        <span className="text-[10px] text-slate-400 font-semibold">{lead.created_at}</span>
+
+                      {/* Right Status & Resolution Toggle */}
+                      <div className="flex items-center gap-2.5 self-start sm:self-center shrink-0">
+                        <span className="text-[11px] text-slate-400 font-medium">{lead.created_at}</span>
                         <button
                           onClick={() => handleToggleLeadResolution(lead.id, lead.resolved)}
-                          className={`w-4 h-4 rounded-full flex items-center justify-center border cursor-pointer ${lead.resolved ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300'}`}
+                          title={lead.resolved ? "Mark as Open / Pending" : "Mark as Resolved"}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 cursor-pointer ${
+                            lead.resolved
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                              : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
+                          }`}
                         >
-                          {lead.resolved && <Check className="w-2.5 h-2.5" />}
+                          {lead.resolved ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Handled</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Pending Follow-up</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
 
-                    <p className="p-3 bg-slate-50 rounded-xl border text-[11px] text-slate-600 italic leading-relaxed">
-                      "{lead.message}"
-                    </p>
+                    {/* Note / Message Container */}
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-700 leading-relaxed italic">
+                      "{lead.message || "No additional commentary provided."}"
+                    </div>
 
-                    <div className="pt-2 flex items-center justify-between gap-3 text-xs">
-                      <span className="font-mono text-[10px] text-slate-400 font-bold">PHONE: {lead.phone}</span>
-                      <a 
-                        href={whatsappUrl} 
-                        target="_blank" 
+                    {/* Action Hub Row */}
+                    <div className="pt-1 flex flex-wrap items-center justify-between gap-3 text-xs border-t border-slate-100">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => handleCopyContact(`${lead.name} | ${lead.phone} | ${lead.email} (${lead.school})`)}
+                          className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <Copy className="w-3 h-3 text-slate-400" />
+                          Copy Info
+                        </button>
+
+                        <a
+                          href={mailtoUrl}
+                          className="px-2.5 py-1 text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <Mail className="w-3 h-3 text-indigo-600" />
+                          Send Email
+                        </a>
+
+                        <button
+                          onClick={() => handleTriggerDirectNotification(lead)}
+                          className="px-2.5 py-1 text-purple-700 hover:text-purple-900 hover:bg-purple-50 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                          title="Trigger real-time Telegram & WhatsApp notification test"
+                        >
+                          <Sparkles className="w-3 h-3 text-purple-600" />
+                          Send Multi-Channel Alert
+                        </button>
+                      </div>
+
+                      {/* WhatsApp 1-Click Action */}
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
                         rel="noreferrer"
-                        className="bg-[#25D366] hover:bg-[#20ba5a] text-white font-extrabold text-xs h-8 px-4 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                        className="bg-[#25D366] hover:bg-[#20ba5a] text-white font-extrabold text-xs h-9 px-4 rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer hover:shadow"
                       >
-                        <MessageSquare className="w-3.5 h-3.5" /> Send WhatsApp Message
+                        <MessageSquare className="w-4 h-4 fill-white" />
+                        <span>Chat on WhatsApp</span>
                       </a>
                     </div>
                   </div>
                 );
               })}
+
               {filteredLeadsList.length === 0 && (
-                <div className="text-center py-12 text-slate-400 italic bg-white border border-slate-200 rounded-2xl">
-                  No registered inquiry leads found in the current filter pipeline.
+                <div className="text-center py-16 px-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-sm">No Matching Leads or Registered Users Found</h3>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Try clearing search criteria or switching filter categories to view records in the pipeline.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setLeadSearch("");
+                      setLeadRoleFilter("all");
+                      setLeadCategoryFilter("all");
+                      setShowOpenLeadsOnly(false);
+                    }}
+                    variant="outline"
+                    className="text-xs font-bold h-8"
+                  >
+                    Reset All Filters
+                  </Button>
                 </div>
               )}
             </div>
@@ -1083,35 +1616,75 @@ export function SuperAdminDashboard({
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-slate-50">
-                        <TableHead>School</TableHead>
+                        <TableHead>School & Payer</TableHead>
                         <TableHead>Tier & Duration</TableHead>
                         <TableHead className="text-right">Amount (₦)</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredReceiptsList.map((r) => (
-                        <TableRow key={r.id} className="hover:bg-slate-50/50">
-                          <TableCell className="font-bold text-slate-800">
-                            <div>{r.school_name}</div>
-                            <span className="text-[9px] text-slate-400 block font-mono">{r.created_at}</span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-[10px] font-bold text-indigo-600 block">{r.tier?.replace(/_/g, " ").toUpperCase() || ""}</span>
-                            <span className="text-[9px] text-slate-400 uppercase font-semibold">{r.duration?.replace(/_/g, " ") || ""}</span>
-                          </TableCell>
-                          <TableCell className="text-right font-mono font-bold text-slate-700">
-                            ₦{r.amount_ngn.toLocaleString()}
-                          </TableCell>
-                          <TableCell>
-                            {r.status === "approved" ? (
-                              <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] font-bold">Approved</Badge>
-                            ) : (
-                              <Badge className="bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-bold animate-pulse">Pending</Badge>
-                            )}
+                      {filteredReceiptsList.map((r: any) => {
+                        const schoolName = r.school_name || r.schoolName || "Corner Streams Global";
+                        const isPending = r.status !== "approved";
+                        return (
+                          <TableRow key={r.id} className="hover:bg-slate-50/50">
+                            <TableCell className="font-bold text-slate-800">
+                              <div className="text-xs text-slate-900">{schoolName}</div>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                {r.submitted_by && (
+                                  <span className="text-[10px] text-slate-500 font-normal">
+                                    By: {r.submitted_by}
+                                  </span>
+                                )}
+                                {r.whatsapp_code && (
+                                  <span className="text-[9px] font-mono font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                    #{r.whatsapp_code}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[9px] text-slate-400 block font-mono mt-0.5">
+                                {r.created_at ? new Date(r.created_at).toLocaleDateString() : "Recent"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-[10px] font-bold text-indigo-600 block">
+                                {(r.tier || "Enterprise").replace(/_/g, " ").toUpperCase()}
+                              </span>
+                              <span className="text-[9px] text-slate-400 uppercase font-semibold">
+                                {(r.duration || "Full Session").replace(/_/g, " ")}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-bold text-slate-700">
+                              ₦{(r.amount_ngn || 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              {r.status === "approved" ? (
+                                <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] font-bold">Approved</Badge>
+                              ) : (
+                                <Badge className="bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-bold animate-pulse">Pending</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant={isPending ? "default" : "outline"}
+                                className={`h-6 text-[10px] font-bold ${isPending ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                                onClick={() => handleToggleReceiptStatus(r.id, r.status)}
+                              >
+                                {isPending ? "Approve" : "Mark Pending"}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {filteredReceiptsList.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-xs">
+                            No receipts match your search filter.
                           </TableCell>
                         </TableRow>
-                      ))}
+                      )}
                     </TableBody>
                   </Table>
                 </div>

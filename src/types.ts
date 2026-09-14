@@ -186,7 +186,7 @@ export interface CbtAuditLogEntry {
   ipAddress?: string;
 }
 
-export type NotificationCategory = 'grade_publication' | 'upcoming_exam' | 'payment_deadline' | 'system';
+export type NotificationCategory = 'grade_publication' | 'upcoming_exam' | 'payment_deadline' | 'system' | 'lead_alert' | 'registration' | 'receipt';
 
 export interface Notification {
   id: string;

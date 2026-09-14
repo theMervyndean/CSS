@@ -450,7 +450,7 @@ export function ParentPortal({ currentProfile, theme, setTheme, activeFont, setA
             </div>
 
             {/* Electronic Report card visual block */}
-            <div className="cs-card p-6 border-slate-350/85 relative overflow-hidden bg-white shadow-xl space-y-6">
+            <div className="cs-card p-6 border-slate-350 border-slate-300 relative overflow-hidden bg-white shadow-xl space-y-6">
               
               {/* Security authentication watermark stamp background */}
               <div className="absolute inset-0 pointer-events-none opacity-[0.015] flex items-center justify-center">

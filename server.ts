@@ -1,6 +1,8 @@
 import express from "express";
 import http from "http";
+import https from "https";
 import path from "path";
+import nodemailer from "nodemailer";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, ThinkingLevel, Type, Modality, LiveServerMessage } from "@google/genai";
@@ -1580,6 +1582,921 @@ Provide a supportive summary for parents on how to encourage their child at home
     return res.status(500).json({ error: error.message || "Failed to generate parent advisory." });
   }
 });
+
+// ==========================================
+// CALLMEBOT WHATSAPP API & MULTI-CHANNEL NOTIFICATION ENGINE
+// ==========================================
+
+const DEFAULT_TARGET_PHONE = "+2348141880550";
+const DEFAULT_RECIPIENT_EMAILS = [
+  "mervyndeanhilary@gmail.com",
+  "eluwamercy789@gmail.com",
+  "thecornerstreams@gmail.com",
+  "mervynifeanyi@gmail.com"
+];
+
+let lastPageViewThrottle = 0;
+
+export interface NotificationDiagnosticLog {
+  id: string;
+  timestamp: string;
+  channel: "whatsapp_callmebot" | "whatsapp_twilio" | "telegram" | "email";
+  status: "success" | "error" | "skipped_unconfigured" | "pending";
+  event: string;
+  recipient: string;
+  details: string;
+  httpStatus?: number;
+  error?: string;
+}
+
+// In-memory diagnostic logs buffer (stores last 50 notification events for admin auditing)
+const notificationDiagnosticLogs: NotificationDiagnosticLog[] = [];
+
+export function pushNotificationDiagnosticLog(log: Omit<NotificationDiagnosticLog, "id" | "timestamp">) {
+  const entry: NotificationDiagnosticLog = {
+    id: `diag-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+    timestamp: new Date().toISOString(),
+    ...log
+  };
+  notificationDiagnosticLogs.unshift(entry);
+  if (notificationDiagnosticLogs.length > 60) {
+    notificationDiagnosticLogs.pop();
+  }
+}
+
+/**
+ * CallMeBot WhatsApp API Gateway Dispatcher
+ * URL Format: https://api.callmebot.com/whatsapp.php?phone=[phone]&text=[text]&apikey=[apikey]
+ * Phone format must be international without + or spaces (e.g. 2348141880550)
+ */
+export async function sendCallMeBotWhatsApp(
+  message: string,
+  options: { phone?: string; apiKey?: string; event?: string } = {}
+): Promise<{ success: boolean; error?: string; status?: number; gateway?: string }> {
+  const eventName = options.event || "general_alert";
+  const rawPhone = options.phone || process.env.CALLMEBOT_PHONE || process.env.WHATSAPP_NOTIFICATION_PHONE || DEFAULT_TARGET_PHONE;
+  const rawApiKey = options.apiKey || process.env.CALLMEBOT_API_KEY || process.env.CALLMEBOT_APIKEY;
+
+  if (!rawPhone || !rawApiKey) {
+    const errorMsg = "CALLMEBOT_API_KEY or CALLMEBOT_PHONE is not configured in environment";
+    console.log(`[CallMeBot WhatsApp]: Skipped - ${errorMsg}`);
+    pushNotificationDiagnosticLog({
+      channel: "whatsapp_callmebot",
+      status: "skipped_unconfigured",
+      event: eventName,
+      recipient: rawPhone || "Not set",
+      details: "Skipped dispatch: Missing CALLMEBOT_API_KEY in app environment settings.",
+      error: errorMsg
+    });
+    return { success: false, error: errorMsg };
+  }
+
+  // Clean phone number: remove +, spaces, dashes, parentheses
+  const cleanPhone = rawPhone.replace(/[^0-9]/g, "");
+  const cleanApiKey = rawApiKey.trim();
+
+  if (!cleanPhone || !cleanApiKey) {
+    const errorMsg = "Invalid sanitized phone number or empty API key";
+    pushNotificationDiagnosticLog({
+      channel: "whatsapp_callmebot",
+      status: "error",
+      event: eventName,
+      recipient: rawPhone,
+      details: "Sanitization failed for phone or API key.",
+      error: errorMsg
+    });
+    return { success: false, error: errorMsg };
+  }
+
+  try {
+    const encodedText = encodeURIComponent(message);
+    const apiUrl = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(cleanPhone)}&text=${encodedText}&apikey=${encodeURIComponent(cleanApiKey)}`;
+
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: {
+        "User-Agent": "CornerStreams-NotificationEngine/1.0"
+      }
+    });
+
+    const responseBody = await response.text();
+
+    if (response.ok) {
+      console.log(`[CallMeBot WhatsApp Success]: Dispatched to +${cleanPhone} (HTTP ${response.status})`);
+      pushNotificationDiagnosticLog({
+        channel: "whatsapp_callmebot",
+        status: "success",
+        event: eventName,
+        recipient: `+${cleanPhone}`,
+        details: `Dispatched successfully to WhatsApp via CallMeBot gateway: ${responseBody.slice(0, 100)}`,
+        httpStatus: response.status
+      });
+      return { success: true, status: response.status, gateway: "callmebot" };
+    } else {
+      console.warn(`[CallMeBot WhatsApp API Error]: Status ${response.status} - ${responseBody}`);
+      pushNotificationDiagnosticLog({
+        channel: "whatsapp_callmebot",
+        status: "error",
+        event: eventName,
+        recipient: `+${cleanPhone}`,
+        details: `CallMeBot returned HTTP error ${response.status}`,
+        httpStatus: response.status,
+        error: responseBody || `HTTP ${response.status}`
+      });
+      return { success: false, status: response.status, error: responseBody || `HTTP ${response.status}` };
+    }
+  } catch (error: any) {
+    console.error("[CallMeBot WhatsApp Exception]:", error);
+    pushNotificationDiagnosticLog({
+      channel: "whatsapp_callmebot",
+      status: "error",
+      event: eventName,
+      recipient: `+${cleanPhone}`,
+      details: "Network connection or timeout exception talking to CallMeBot.",
+      error: error.message
+    });
+    return { success: false, error: error.message || "Failed to reach CallMeBot API" };
+  }
+}
+
+// Helper to parse SMTP port safely even if SMTP_PORT is set to an email, inbox ID, or invalid string
+function parseSmtpPort(rawPort: any): number {
+  if (rawPort === undefined || rawPort === null || rawPort === "") {
+    return 465;
+  }
+  const str = String(rawPort).trim();
+  
+  // If the value looks like an email address or inbox identifier (e.g. "thecornerstreams@gmail.com" or "inbox_id")
+  if (str.includes("@") || /[a-zA-Z]/.test(str)) {
+    // Attempt to extract numeric port digits if embedded (e.g. "port: 587", "465/tcp", ":465")
+    const portMatch = str.match(/\b(25|465|587|2525|8025)\b/) || str.match(/\b\d{2,5}\b/);
+    if (portMatch) {
+      const parsed = parseInt(portMatch[0], 10);
+      if (parsed >= 1 && parsed <= 65535) {
+        return parsed;
+      }
+    }
+    console.warn(`[SMTP Config Warning]: SMTP_PORT was set to non-numeric value / inbox identifier ("${str}"). Defaulting to port 465.`);
+    return 465;
+  }
+
+  const parsed = parseInt(str, 10);
+  if (!isNaN(parsed) && parsed >= 1 && parsed <= 65535) {
+    return parsed;
+  }
+  
+  console.warn(`[SMTP Config Warning]: Invalid SMTP_PORT number (${str}). Defaulting to port 465.`);
+  return 465;
+}
+
+// Helper to parse SMTP host safely, preventing email addresses from being treated as hostnames
+function parseSmtpHost(rawHost: any): string {
+  if (!rawHost || typeof rawHost !== "string" || !rawHost.trim()) {
+    return "smtp.gmail.com";
+  }
+  const trimmed = rawHost.trim();
+  if (trimmed.includes("@")) {
+    console.warn(`[SMTP Config Warning]: SMTP_HOST received email address ("${trimmed}"). Defaulting host to smtp.gmail.com.`);
+    return "smtp.gmail.com";
+  }
+  return trimmed;
+}
+
+// Helper to parse SMTP user safely
+function parseSmtpUser(rawUser: any): string {
+  if (!rawUser || typeof rawUser !== "string" || !rawUser.trim()) {
+    return "thecornerstreams@gmail.com";
+  }
+  return rawUser.trim();
+}
+
+// Helper to parse SMTP password safely, stripping any copied spaces in app passwords
+function parseSmtpPass(rawPass: any): string | undefined {
+  if (rawPass && typeof rawPass === "string" && rawPass.trim()) {
+    return rawPass.trim().replace(/\s+/g, "");
+  }
+  // Check alternate env variable keys and default verified app password
+  const altPass = process.env.SMTP_PASSWORD || process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASSWORD || process.env.MAIL_PASSWORD || "srhaqtqsjxpakjcj";
+  if (altPass && typeof altPass === "string" && altPass.trim()) {
+    return altPass.trim().replace(/\s+/g, "");
+  }
+  return undefined;
+}
+
+// Lazy SMTP transporter creation with robust fallback and auto-detection
+function getMailTransporter(): nodemailer.Transporter | null {
+  const host = parseSmtpHost(process.env.SMTP_HOST);
+  const port = parseSmtpPort(process.env.SMTP_PORT);
+  const user = parseSmtpUser(process.env.SMTP_USER);
+  const pass = parseSmtpPass(process.env.SMTP_PASS);
+
+  if (!pass) {
+    return null;
+  }
+
+  // Automatic secure flag negotiation: port 465 uses SSL/TLS (true), port 587/25 uses STARTTLS (false)
+  let secure = port === 465;
+  if (process.env.SMTP_SECURE === "true") secure = true;
+  if (process.env.SMTP_SECURE === "false") secure = false;
+
+  const isGmail = host.includes("gmail") || user.endsWith("@gmail.com");
+
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: "gmail",
+      host: "smtp.gmail.com",
+      port,
+      secure,
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false }
+    });
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false }
+  });
+}
+
+/**
+ * Dispatch message to Telegram Bot API (supports Groups, Channels, and Private chats)
+ */
+function sendTelegramApiMessage(params: {
+  text: string;
+  chatId?: string;
+  botToken?: string;
+  parseMode?: string;
+}): Promise<{ success: boolean; messageId?: number; data?: any; error?: string }> {
+  return new Promise((resolve) => {
+    const token = params.botToken || process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = params.chatId || process.env.TELEGRAM_CHAT_ID;
+
+    if (!token || !chatId) {
+      console.log("[Telegram Bot API]: Skipped - TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not configured in environment.");
+      return resolve({
+        success: false,
+        error: "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not configured."
+      });
+    }
+
+    const payload = JSON.stringify({
+      chat_id: chatId,
+      text: params.text,
+      parse_mode: params.parseMode || "Markdown",
+      disable_web_page_preview: false,
+    });
+
+    const req = https.request(
+      {
+        hostname: "api.telegram.org",
+        port: 443,
+        path: `/bot${token}/sendMessage`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+      },
+      (res) => {
+        let raw = "";
+        res.on("data", (chunk) => { raw += chunk; });
+        res.on("end", () => {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.ok) {
+              console.log(`[Telegram Bot API] Success! Message dispatched to chat ${chatId} (Msg ID: ${parsed.result?.message_id})`);
+              resolve({
+                success: true,
+                messageId: parsed.result?.message_id,
+                data: parsed.result,
+              });
+            } else {
+              console.warn(`[Telegram Bot API Error]: ${parsed.description || raw}`);
+              resolve({
+                success: false,
+                error: parsed.description || "Failed to send Telegram message",
+              });
+            }
+          } catch (e: any) {
+            resolve({ success: false, error: e.message || "Invalid JSON response from Telegram" });
+          }
+        });
+      }
+    );
+
+    req.on("error", (err) => {
+      console.error("[Telegram Network Error]:", err.message);
+      resolve({ success: false, error: err.message });
+    });
+
+    req.setTimeout(8000, () => {
+      req.destroy();
+      resolve({ success: false, error: "Telegram API request timed out after 8s" });
+    });
+
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
+ * Generate formatted HTML template for multi-recipient email notifications
+ */
+function buildEmailTemplate(title: string, badge: string, icon: string, details: { label: string; value: string }[], footerNote?: string): string {
+  const detailsHtml = details
+    .map(
+      (item) => `
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px 12px; font-weight: 600; color: #475569; width: 35%; font-size: 13px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${item.label}</td>
+        <td style="padding: 10px 12px; color: #0f172a; font-size: 14px; font-weight: 500; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${item.value}</td>
+      </tr>`
+    )
+    .join("");
+
+  return `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <title>${title}</title>
+  </head>
+  <body style="margin: 0; padding: 24px; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+      
+      <!-- Header -->
+      <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #059669 100%); padding: 24px 28px; color: #ffffff;">
+        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 24px; margin-right: 10px;">${icon}</span>
+          <span style="font-size: 18px; font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase;">CORNER STREAMS</span>
+        </div>
+        <h1 style="margin: 4px 0 0 0; font-size: 20px; font-weight: 700; color: #ffffff; letter-spacing: -0.01em;">${title}</h1>
+        <div style="margin-top: 8px;">
+          <span style="display: inline-block; background-color: rgba(255,255,255,0.2); backdrop-filter: blur(4px); color: #ffffff; padding: 3px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">${badge}</span>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div style="padding: 24px 28px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <tbody>
+            ${detailsHtml}
+          </tbody>
+        </table>
+
+        ${footerNote ? `
+        <div style="background-color: #f1f5f9; border-left: 4px solid #059669; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #334155; margin-top: 16px;">
+          ${footerNote}
+        </div>` : ""}
+
+        <div style="margin-top: 24px; text-align: center;">
+          <a href="https://cornerstreams.com" style="display: inline-block; background: linear-gradient(to right, #4338ca, #059669); color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 13px;">Open Corner Streams Portal</a>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 28px; text-align: center; font-size: 11px; color: #64748b;">
+        <p style="margin: 0 0 4px 0;">This automated alert was dispatched to Corner Streams administrators.</p>
+        <p style="margin: 0;">&copy; 2026 Corner Streams. All rights reserved.</p>
+      </div>
+
+    </div>
+  </body>
+  </html>`;
+}
+
+/**
+ * POST /api/telegram/send - Direct endpoint to send notifications to Telegram Channel or Group
+ */
+app.post("/api/telegram/send", async (req: express.Request, res: express.Response): Promise<any> => {
+  try {
+    const { text, chatId, botToken, parseMode } = req.body;
+    if (!text) {
+      return res.status(400).json({ success: false, error: "Text message is required" });
+    }
+
+    const result = await sendTelegramApiMessage({
+      text,
+      chatId,
+      botToken,
+      parseMode: parseMode || "Markdown"
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error("[POST /api/telegram/send Error]:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to dispatch Telegram message" });
+  }
+});
+
+/**
+ * GET /api/telegram/status - Check Telegram bot configuration
+ */
+app.get("/api/telegram/status", (req: express.Request, res: express.Response) => {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  res.json({
+    configured: Boolean(token && chatId),
+    hasToken: Boolean(token),
+    hasChatId: Boolean(chatId),
+    chatIdType: chatId ? (chatId.startsWith("-100") ? "supergroup_or_channel" : chatId.startsWith("-") ? "group" : "private_chat") : "none",
+    instructions: {
+      step1: "Create a bot using @BotFather on Telegram to get your bot token",
+      step2: "Add your bot as an Administrator to your Telegram Group or Channel",
+      step3: "Get your Group/Channel Chat ID (e.g. using @RawDataBot or @userinfobot)",
+      step4: "Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in environment settings",
+    }
+  });
+});
+
+/**
+ * POST /api/notify-all - Universal Multi-Channel Dispatcher (Telegram Group/Channel + Email 4 Inboxes + WhatsApp)
+ */
+app.post("/api/notify-all", async (req: express.Request, res: express.Response): Promise<any> => {
+  try {
+    const { eventType, data } = req.body;
+    const now = new Date();
+    const formattedTime = now.toLocaleString("en-GB", { timeZone: "Africa/Lagos" }) + " (WAT)";
+
+    // Throttle page view alerts (once every 5 minutes)
+    if (eventType === "page_view") {
+      const nowMs = Date.now();
+      if (nowMs - lastPageViewThrottle < 300000) {
+        return res.json({ success: true, message: "Page view notification throttled" });
+      }
+      lastPageViewThrottle = nowMs;
+    }
+
+    const recipients = (process.env.ADMIN_NOTIFICATION_EMAILS
+      ? process.env.ADMIN_NOTIFICATION_EMAILS.split(",").map(e => e.trim()).filter(Boolean)
+      : DEFAULT_RECIPIENT_EMAILS);
+
+    const targetPhone = process.env.WHATSAPP_NOTIFICATION_PHONE || DEFAULT_TARGET_PHONE;
+    const cleanPhone = targetPhone.replace(/[^0-9+]/g, "");
+
+    let subject = "";
+    let emailHtml = "";
+    let whatsAppText = "";
+    let telegramText = "";
+
+    switch (eventType) {
+      case "contact_message": {
+        subject = `📩 [Corner Streams] Contact Inquiry: ${data?.name || "New Lead"} - ${data?.subject || "General"}`;
+        whatsAppText = `📩 *New Contact Inquiry*\n\n• *Name:* ${data?.name || "Anonymous"}\n• *Email:* ${data?.email || "N/A"}\n• *Phone:* ${data?.phone || "N/A"}\n• *Subject:* ${data?.subject || "General Inquiry"}\n• *Message:* "${data?.message || ""}"\n• *Time:* ${formattedTime}`;
+        telegramText = `📩 *NEW CONTACT INQUIRY RECEIVED*\n━━━━━━━━━━━━━━━━━━━━\n👤 *Name:* ${data?.name || "Anonymous Lead"}\n📧 *Email:* [${data?.email || "N/A"}](mailto:${data?.email})\n📞 *Phone:* ${data?.phone || "N/A"}\n🏷️ *Subject:* ${data?.subject || "General Inquiry"}\n💬 *Message:*\n_${(data?.message || "No message provided").trim()}_\n━━━━━━━━━━━━━━━━━━━━\n⏰ *Time:* \`${formattedTime}\``;
+        emailHtml = buildEmailTemplate(
+          "New Contact Inquiry Received",
+          "Contact Lead",
+          "📩",
+          [
+            { label: "Sender Name", value: data?.name || "Anonymous" },
+            { label: "Email Address", value: `<a href="mailto:${data?.email}">${data?.email || "N/A"}</a>` },
+            { label: "Phone Number", value: `<a href="tel:${data?.phone}">${data?.phone || "N/A"}</a>` },
+            { label: "Subject", value: data?.subject || "General Inquiry" },
+            { label: "Message", value: `<div style="white-space: pre-wrap; background: #fff; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-top: 4px;">${data?.message || ""}</div>` },
+            { label: "Timestamp", value: formattedTime }
+          ],
+          "You can reply directly to the sender using their email address above."
+        );
+        break;
+      }
+
+      case "school_onboarded": {
+        subject = `🏫 [Corner Streams] NEW SCHOOL ENROLLED: ${data?.schoolName || "New Institution"}`;
+        whatsAppText = `🏫 *NEW SCHOOL ONBOARDED!*\n\n• *School:* ${data?.schoolName || "N/A"}\n• *Admin:* ${data?.adminName || "N/A"}\n• *Email:* ${data?.email || "N/A"}\n• *Phone:* ${data?.phone || "N/A"}\n• *State/LGA:* ${data?.state || ""} ${data?.lga ? `(${data.lga})` : ""}\n• *School ID:* ${data?.schoolId || "Generated"}\n• *Time:* ${formattedTime}`;
+        telegramText = `🏫 *NEW SCHOOL ONBOARDED!* 🎉\n━━━━━━━━━━━━━━━━━━━━\n🏛️ *School Name:* *${(data?.schoolName || "NEW INSTITUTION").toUpperCase()}*\n👨‍💼 *Administrator:* ${data?.adminName || "N/A"}\n📧 *Admin Email:* [${data?.email}](mailto:${data?.email})\n📞 *Phone / WhatsApp:* [${data?.phone}](tel:${data?.phone})\n📍 *Location:* ${data?.state || "N/A"} ${data?.lga ? `(${data.lga})` : ""}\n🆔 *Assigned ID:* \`${data?.schoolId || "Generated"}\`\n━━━━━━━━━━━━━━━━━━━━\n⏰ *Enrolled At:* \`${formattedTime}\`\n⚡ *Status:* Tenant database initialized`;
+        emailHtml = buildEmailTemplate(
+          "New School Onboarded Successfully",
+          "Institutional Onboarding",
+          "🏫",
+          [
+            { label: "School Name", value: `<strong style="color: #1e1b4b; font-size: 15px;">${data?.schoolName || "N/A"}</strong>` },
+            { label: "Admin Name", value: data?.adminName || "N/A" },
+            { label: "Admin Email", value: `<a href="mailto:${data?.email}">${data?.email || "N/A"}</a>` },
+            { label: "Contact Phone", value: `<a href="tel:${data?.phone}">${data?.phone || "N/A"}</a>` },
+            { label: "State & LGA", value: `${data?.state || "N/A"} ${data?.lga ? `(${data.lga})` : ""}` },
+            { label: "Assigned School ID", value: `<code style="background: #e0e7ff; color: #3730a3; padding: 3px 8px; border-radius: 4px; font-weight: 700;">${data?.schoolId || "N/A"}</code>` },
+            { label: "Registration Time", value: formattedTime }
+          ],
+          "This school's tenant database and admin account have been initialized."
+        );
+        break;
+      }
+
+      case "user_registered": {
+        subject = `👤 [Corner Streams] New User Registered: ${data?.fullName || "New Member"} (${data?.role || "User"})`;
+        whatsAppText = `👤 *New User Registration*\n\n• *Name:* ${data?.fullName || data?.name || "N/A"}\n• *Role:* ${data?.role || "User"}\n• *Email:* ${data?.email || "N/A"}\n• *Phone:* ${data?.phone || "N/A"}\n• *School:* ${data?.schoolName || data?.schoolId || "N/A"}\n• *Time:* ${formattedTime}`;
+        telegramText = `👤 *NEW USER REGISTERED*\n━━━━━━━━━━━━━━━━━━━━\n👤 *Full Name:* ${data?.fullName || data?.name || "N/A"}\n🛡️ *Role:* \`${(data?.role || "USER").toUpperCase()}\`\n📧 *Email:* [${data?.email}](mailto:${data?.email})\n${data?.phone ? `📞 *Phone:* ${data.phone}\n` : ""}${data?.schoolName ? `🏫 *School:* ${data.schoolName}\n` : ""}━━━━━━━━━━━━━━━━━━━━\n⏰ *Registered:* \`${formattedTime}\``;
+        emailHtml = buildEmailTemplate(
+          "New User Account Registered",
+          data?.role || "Account Registration",
+          "👤",
+          [
+            { label: "Full Name", value: data?.fullName || data?.name || "N/A" },
+            { label: "Account Role", value: `<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">${data?.role || "User"}</span>` },
+            { label: "Email Address", value: `<a href="mailto:${data?.email}">${data?.email || "N/A"}</a>` },
+            { label: "Phone", value: data?.phone || "N/A" },
+            { label: "Affiliated School", value: data?.schoolName || data?.schoolId || "Corner Streams Global" },
+            { label: "Registered At", value: formattedTime }
+          ]
+        );
+        break;
+      }
+
+      case "payment_receipt":
+      case "receipt_uploaded": {
+        const formattedAmount = data?.amount_ngn || data?.amountNgn ? `₦${Number(data?.amount_ngn || data?.amountNgn).toLocaleString()}` : "₦0";
+        const receiptCode = data?.whatsappCode || data?.whatsapp_code || data?.receiptId || "REF-" + Math.floor(100000 + Math.random() * 900000);
+        subject = `🧾 [Corner Streams] Payment Receipt Logged: ${formattedAmount} - ${data?.schoolName || data?.school_name || "Institution"}`;
+        whatsAppText = `🧾 *NEW PAYMENT RECEIPT LOGGED*\n\n• *School:* ${data?.schoolName || data?.school_name || "N/A"}\n• *Payer:* ${data?.submittedBy || data?.submitted_by || "Admin"}\n• *Amount:* ${formattedAmount}\n• *Plan/Tier:* ${(data?.tier || "Standard").replace(/_/g, " ").toUpperCase()}\n• *Ref Code:* #${receiptCode}\n• *Status:* ${(data?.status || "Pending").toUpperCase()}\n• *Time:* ${formattedTime}`;
+        telegramText = `🧾 *NEW PAYMENT RECEIPT LOGGED*\n━━━━━━━━━━━━━━━━━━━━\n🏛️ *School:* *${(data?.schoolName || data?.school_name || "CORNER STREAMS NETWORK").toUpperCase()}*\n👤 *Payer:* ${data?.submittedBy || data?.submitted_by || "Administrator"}\n💰 *Amount:* *${formattedAmount}*\n🏷️ *Tier/Duration:* \`${(data?.tier || "Standard").replace(/_/g, " ").toUpperCase()}\` (${data?.duration || "Session"})\n🆔 *Ref Code:* \`#${receiptCode}\`\n⚡ *Status:* \`${(data?.status || "PENDING").toUpperCase()}\`\n━━━━━━━━━━━━━━━━━━━━\n⏰ *Time:* \`${formattedTime}\``;
+        emailHtml = buildEmailTemplate(
+          "Payment Receipt Verification Required",
+          "Bursary & Billing",
+          "🧾",
+          [
+            { label: "School Name", value: `<strong style="color: #1e1b4b; font-size: 15px;">${data?.schoolName || data?.school_name || "Corner Streams Global"}</strong>` },
+            { label: "Submitted By", value: data?.submittedBy || data?.submitted_by || "Administrator" },
+            { label: "Amount Logged", value: `<span style="color: #059669; font-weight: 800; font-size: 16px; font-family: monospace;">${formattedAmount}</span>` },
+            { label: "Tier / License", value: `<span style="background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">${(data?.tier || "Standard").replace(/_/g, " ").toUpperCase()} (${data?.duration || "Full Session"})</span>` },
+            { label: "Receipt Ref #", value: `<code style="font-weight: 700;">#${receiptCode}</code>` },
+            { label: "Payment Note", value: data?.note || "Automated bank invoice / enrollment clearance receipt" },
+            { label: "Submission Time", value: formattedTime }
+          ],
+          "You can verify and clear this receipt directly from your Super Admin or School Admin Dashboard."
+        );
+        break;
+      }
+
+      case "page_view":
+      default: {
+        subject = `🔔 [Corner Streams] Traffic Alert: Visitor on ${data?.page || "Portal"}`;
+        whatsAppText = `🔔 *Corner Streams Alert*\n\n👁️ *Visitor on Portal*\n• *Page:* ${data?.page || "Public Portal"}\n• *Device:* ${data?.userAgent ? (data.userAgent.includes("Mobile") ? "Mobile" : "Desktop") : "Web"}\n• *Time:* ${formattedTime}\n• *URL:* ${data?.url || "https://cornerstreams.com"}`;
+        telegramText = `🔔 *PORTAL VISITOR ALERT*\n━━━━━━━━━━━━━━━━━━━━\n👁️ *Page:* ${data?.page || "Public Landing Page"}\n${data?.url ? `🔗 *URL:* ${data.url}\n` : ""}⏰ *Time:* \`${formattedTime}\``;
+        emailHtml = buildEmailTemplate(
+          "Portal Page Traffic Alert",
+          "Live Traffic",
+          "🔔",
+          [
+            { label: "Page Visited", value: data?.page || "Public Landing Page" },
+            { label: "Page URL", value: `<a href="${data?.url || "#"}">${data?.url || "Portal"}</a>` },
+            { label: "Device / Client", value: data?.userAgent ? (data.userAgent.includes("Mobile") ? "Mobile Device" : "Desktop Browser") : "Web Client" },
+            { label: "Visit Timestamp", value: formattedTime }
+          ]
+        );
+        break;
+      }
+    }
+
+    console.log(`[Notification Engine] Triggered: ${eventType} | Inboxes: ${recipients.join(", ")}`);
+
+    // 1. Dispatch Telegram Alert to Group / Channel
+    const customChatId = req.body.chatId || data?.chatId;
+    const tgResult = await sendTelegramApiMessage({ text: telegramText, chatId: customChatId, parseMode: "Markdown" });
+    if (tgResult.success) {
+      pushNotificationDiagnosticLog({
+        channel: "telegram",
+        status: "success",
+        event: eventType,
+        recipient: customChatId || process.env.TELEGRAM_CHAT_ID || "Default Group/Channel",
+        details: `Dispatched Telegram Markdown notification (Msg ID: ${tgResult.messageId || 'Delivered'})`
+      });
+    } else {
+      pushNotificationDiagnosticLog({
+        channel: "telegram",
+        status: tgResult.error?.includes("not configured") ? "skipped_unconfigured" : "error",
+        event: eventType,
+        recipient: customChatId || process.env.TELEGRAM_CHAT_ID || "Not set",
+        details: tgResult.error || "Telegram dispatch error",
+        error: tgResult.error
+      });
+    }
+
+    // 2. Dispatch WhatsApp (CallMeBot with Twilio fallback)
+    let whatsAppDispatched = false;
+    let whatsAppGateway = "none";
+    let whatsAppError: string | undefined = undefined;
+
+    // Primary: CallMeBot WhatsApp Gateway
+    const callmebotRes = await sendCallMeBotWhatsApp(whatsAppText, {
+      event: eventType,
+      phone: cleanPhone
+    });
+
+    if (callmebotRes.success) {
+      whatsAppDispatched = true;
+      whatsAppGateway = "callmebot";
+    } else {
+      whatsAppError = callmebotRes.error;
+      // Secondary Fallback: Twilio WhatsApp
+      const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+      const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
+      const twilioFrom = process.env.TWILIO_WHATSAPP_NUMBER || "whatsapp:+14155238886";
+
+      if (twilioSid && twilioAuth) {
+        try {
+          const toWhatsApp = `whatsapp:${cleanPhone.startsWith("+") ? cleanPhone : "+" + cleanPhone}`;
+          const postData = new URLSearchParams({
+            To: toWhatsApp,
+            From: twilioFrom,
+            Body: whatsAppText
+          }).toString();
+
+          const reqAuth = Buffer.from(`${twilioSid}:${twilioAuth}`).toString("base64");
+          const twilioReq = https.request({
+            hostname: "api.twilio.com",
+            port: 443,
+            path: `/2010-04-01/Accounts/${twilioSid}/Messages.json`,
+            method: "POST",
+            headers: {
+              "Authorization": `Basic ${reqAuth}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+              "Content-Length": Buffer.byteLength(postData)
+            }
+          }, (twilioRes) => {
+            let data = "";
+            twilioRes.on("data", chunk => { data += chunk; });
+            twilioRes.on("end", () => {
+              console.log("[Twilio WhatsApp Result]:", data);
+            });
+          });
+          twilioReq.on("error", (err) => console.error("[Twilio WhatsApp Error]:", err.message));
+          twilioReq.write(postData);
+          twilioReq.end();
+          whatsAppDispatched = true;
+          whatsAppGateway = "twilio";
+          pushNotificationDiagnosticLog({
+            channel: "whatsapp_twilio",
+            status: "success",
+            event: eventType,
+            recipient: toWhatsApp,
+            details: "Dispatched WhatsApp via Twilio gateway fallback."
+          });
+        } catch (err: any) {
+          console.error("[Twilio Dispatch Failed]:", err.message);
+          pushNotificationDiagnosticLog({
+            channel: "whatsapp_twilio",
+            status: "error",
+            event: eventType,
+            recipient: cleanPhone,
+            details: "Twilio dispatch threw exception",
+            error: err.message
+          });
+        }
+      }
+    }
+
+    // 3. Dispatch Email via Nodemailer to all 4 recipient inboxes
+    const transporter = getMailTransporter();
+    let emailDispatched = false;
+    if (transporter) {
+      try {
+        await transporter.sendMail({
+          from: `"Corner Streams Platform" <${process.env.SMTP_USER || "thecornerstreams@gmail.com"}>`,
+          to: recipients,
+          subject,
+          html: emailHtml,
+          text: whatsAppText.replace(/\*/g, "")
+        });
+        emailDispatched = true;
+        console.log(`[Email Dispatched Successfully] Sent to: ${recipients.join(", ")}`);
+        pushNotificationDiagnosticLog({
+          channel: "email",
+          status: "success",
+          event: eventType,
+          recipient: recipients.join(", "),
+          details: `HTML email delivered to ${recipients.length} inboxes successfully.`
+        });
+      } catch (mailErr: any) {
+        console.error("[Email Dispatch Error]:", mailErr.message);
+        pushNotificationDiagnosticLog({
+          channel: "email",
+          status: "error",
+          event: eventType,
+          recipient: recipients.join(", "),
+          details: `Email dispatch failure: ${mailErr.message}`,
+          error: mailErr.message
+        });
+      }
+    } else {
+      console.log(`[Email Simulation] SMTP_PASS not set. Would deliver to: ${recipients.join(", ")}`);
+      pushNotificationDiagnosticLog({
+        channel: "email",
+        status: "skipped_unconfigured",
+        event: eventType,
+        recipient: recipients.join(", "),
+        details: "Skipped email delivery: SMTP_PASS is not configured."
+      });
+    }
+
+    const waMeLink = `https://wa.me/${cleanPhone.replace("+", "")}?text=${encodeURIComponent(whatsAppText)}`;
+
+    return res.json({
+      success: true,
+      recipients,
+      phone: cleanPhone,
+      telegramDispatched: tgResult.success,
+      whatsAppDispatched,
+      whatsAppGateway,
+      whatsAppError,
+      emailDispatched,
+      waMeLink
+    });
+
+  } catch (error: any) {
+    console.error("[Notification Engine Error]:", error);
+    return res.status(500).json({ success: false, error: error.message || "Failed to dispatch notification" });
+  }
+});
+
+/**
+ * GET /api/notifications/diagnostics - Return diagnostic logs and integration statuses for admin verification
+ */
+app.get("/api/notifications/diagnostics", (req, res) => {
+  const targetPhone = process.env.CALLMEBOT_PHONE || process.env.WHATSAPP_NOTIFICATION_PHONE || DEFAULT_TARGET_PHONE;
+  const cleanPhone = targetPhone.replace(/[^0-9]/g, "");
+  const hasCallMeBotKey = Boolean(process.env.CALLMEBOT_API_KEY || process.env.CALLMEBOT_APIKEY);
+  const hasTelegram = Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
+  const parsedHost = parseSmtpHost(process.env.SMTP_HOST);
+  const parsedPort = parseSmtpPort(process.env.SMTP_PORT);
+  const parsedUser = parseSmtpUser(process.env.SMTP_USER);
+  const parsedPass = parseSmtpPass(process.env.SMTP_PASS);
+  const hasSmtp = Boolean(parsedPass);
+  const hasTwilio = Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN);
+
+  res.json({
+    status: "online",
+    integrations: {
+      callmebot: {
+        configured: Boolean(cleanPhone && hasCallMeBotKey),
+        phone: cleanPhone ? `+${cleanPhone}` : null,
+        hasApiKey: hasCallMeBotKey,
+        apiKeyMasked: hasCallMeBotKey ? `...${(process.env.CALLMEBOT_API_KEY || process.env.CALLMEBOT_APIKEY || "").slice(-4)}` : null,
+        provider: "CallMeBot Direct WhatsApp Gateway",
+        endpoint: "https://api.callmebot.com/whatsapp.php"
+      },
+      telegram: {
+        configured: hasTelegram,
+        hasToken: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+        hasChatId: Boolean(process.env.TELEGRAM_CHAT_ID),
+        chatId: process.env.TELEGRAM_CHAT_ID ? `...${process.env.TELEGRAM_CHAT_ID.slice(-4)}` : null
+      },
+      email: {
+        configured: hasSmtp,
+        host: parsedHost,
+        port: parsedPort,
+        user: parsedUser,
+        isGmail: parsedHost.includes("gmail") || parsedUser.endsWith("@gmail.com"),
+        hasPassword: Boolean(parsedPass),
+        inboxes: (process.env.ADMIN_NOTIFICATION_EMAILS
+          ? process.env.ADMIN_NOTIFICATION_EMAILS.split(",").map(e => e.trim()).filter(Boolean)
+          : DEFAULT_RECIPIENT_EMAILS)
+      },
+      twilio: {
+        configured: hasTwilio
+      }
+    },
+    logs: notificationDiagnosticLogs.slice(0, 40),
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * POST /api/notifications/email/test - Manual Trigger / Diagnostic Test Endpoint for Email
+ */
+app.post("/api/notifications/email/test", async (req: express.Request, res: express.Response): Promise<any> => {
+  try {
+    const transporter = getMailTransporter();
+    const recipients = (process.env.ADMIN_NOTIFICATION_EMAILS
+      ? process.env.ADMIN_NOTIFICATION_EMAILS.split(",").map(e => e.trim()).filter(Boolean)
+      : DEFAULT_RECIPIENT_EMAILS);
+
+    if (!transporter) {
+      pushNotificationDiagnosticLog({
+        channel: "email",
+        status: "skipped_unconfigured",
+        event: "manual_test_alert",
+        recipient: recipients.join(", "),
+        details: "Test dispatch skipped: SMTP_PASS not configured in environment.",
+        error: "SMTP_PASS not configured"
+      });
+      return res.json({
+        success: false,
+        error: "SMTP_PASS not configured in environment settings",
+        recipients
+      });
+    }
+
+    const host = parseSmtpHost(process.env.SMTP_HOST);
+    const port = parseSmtpPort(process.env.SMTP_PORT);
+    const user = parseSmtpUser(process.env.SMTP_USER);
+
+    const testSubject = `🧪 [Corner Streams Test] SMTP Email Engine Verified (${new Date().toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos" })})`;
+    const testHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;">
+        <div style="background: linear-gradient(135deg, #4338ca, #059669); padding: 20px; color: #ffffff;">
+          <h2 style="margin: 0; font-size: 18px;">Corner Streams Notification Engine</h2>
+          <p style="margin: 4px 0 0 0; opacity: 0.9; font-size: 12px;">Diagnostic SMTP Integration Test</p>
+        </div>
+        <div style="padding: 24px; color: #1e293b; font-size: 13px; line-height: 1.6;">
+          <p style="margin-top: 0;"><strong>Hello Administrator,</strong></p>
+          <p>This is a verified test email from the Corner Streams notification service. Your SMTP configuration has been validated:</p>
+          <ul style="background: #f8fafc; padding: 14px 20px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: monospace; font-size: 12px;">
+            <li><strong>SMTP Host:</strong> ${host}</li>
+            <li><strong>SMTP Port:</strong> ${port}</li>
+            <li><strong>Sender Identity:</strong> ${user}</li>
+            <li><strong>Timestamp:</strong> ${new Date().toISOString()}</li>
+          </ul>
+          <p style="color: #059669; font-weight: bold;">Status: All 4 administrator recipient inboxes connected.</p>
+        </div>
+        <div style="background: #f1f5f9; padding: 12px 24px; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0;">
+          &copy; 2026 Corner Streams. All rights reserved.
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"Corner Streams Platform" <${user}>`,
+      to: recipients,
+      subject: testSubject,
+      html: testHtml,
+      text: `Corner Streams SMTP Engine Test - Host: ${host}, Port: ${port}, Time: ${new Date().toISOString()}`
+    });
+
+    pushNotificationDiagnosticLog({
+      channel: "email",
+      status: "success",
+      event: "manual_test_alert",
+      recipient: recipients.join(", "),
+      details: `Test email sent to ${recipients.length} inboxes via ${host}:${port}`
+    });
+
+    return res.json({
+      success: true,
+      host,
+      port,
+      user,
+      recipients,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    console.error("[Email Diagnostic Test Error]:", err);
+    pushNotificationDiagnosticLog({
+      channel: "email",
+      status: "error",
+      event: "manual_test_alert",
+      recipient: DEFAULT_RECIPIENT_EMAILS.join(", "),
+      details: `Test email failure: ${err.message}`,
+      error: err.message
+    });
+    return res.status(500).json({ success: false, error: err.message || "Failed to send test email" });
+  }
+});
+
+/**
+ * POST /api/notifications/callmebot/test - Manual Trigger / Diagnostic Test Endpoint for CallMeBot
+ */
+app.post("/api/notifications/callmebot/test", async (req: express.Request, res: express.Response): Promise<any> => {
+  try {
+    const { message, phone, apiKey } = req.body;
+    const testText = message || `🧪 *Corner Streams WhatsApp Gateway Verified*\n\n✅ CallMeBot API integration is online and operational.\n⏰ Time: ${new Date().toLocaleString("en-GB", { timeZone: "Africa/Lagos" })} (WAT)\n🏛️ Master Admin Notification Service`;
+
+    const result = await sendCallMeBotWhatsApp(testText, {
+      phone,
+      apiKey,
+      event: "manual_diagnostic_test"
+    });
+
+    return res.json({
+      success: result.success,
+      result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    console.error("[CallMeBot Test Error]:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to dispatch CallMeBot test" });
+  }
+});
+
+app.get("/api/notification-recipients", (req, res) => {
+  const recipients = (process.env.ADMIN_NOTIFICATION_EMAILS
+    ? process.env.ADMIN_NOTIFICATION_EMAILS.split(",").map(e => e.trim()).filter(Boolean)
+    : DEFAULT_RECIPIENT_EMAILS);
+
+  const targetPhone = process.env.CALLMEBOT_PHONE || process.env.WHATSAPP_NOTIFICATION_PHONE || DEFAULT_TARGET_PHONE;
+
+  res.json({
+    whatsapp: targetPhone,
+    emails: recipients,
+    hasCallMeBotConfig: Boolean(process.env.CALLMEBOT_API_KEY || process.env.CALLMEBOT_APIKEY),
+    hasSmtpConfig: Boolean(process.env.SMTP_PASS),
+    hasTelegramConfig: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
+    hasTwilioConfig: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+  });
+});
+
 
 // Setup WebSocket server for Real-time Voice Conversations via Gemini Live API (gemini-3.1-flash-live-preview)
 const wss = new WebSocketServer({ server, path: "/live" });

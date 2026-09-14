@@ -13,6 +13,13 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { 
+  acquireGoogleWorkspaceToken, 
+  openGoogleSheetPicker, 
+  readSpreadsheetRange, 
+  fetchSpreadsheetMetadata,
+  getCachedGoogleAccessToken
+} from "@/lib/googleWorkspace";
 
 export interface StudentRowItem {
   id: string;
@@ -218,6 +225,80 @@ export function BulkUploadDialog({
   const [summaryResult, setSummaryResult] = useState<ImportSummaryResult | null>(null);
   const [summaryTab, setSummaryTab] = useState<"skipped" | "success">("skipped");
   const [summarySearchQuery, setSummarySearchQuery] = useState<string>("");
+
+  const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
+
+  // Import directly from Google Drive / Google Sheets using Google Picker
+  const handleGoogleSheetImport = async () => {
+    setIsGoogleLoading(true);
+    try {
+      let token = getCachedGoogleAccessToken();
+      if (!token) {
+        toast.info("Connecting to your Google Account...");
+        token = await acquireGoogleWorkspaceToken();
+      }
+
+      await openGoogleSheetPicker(
+        token,
+        async (pickedDoc) => {
+          try {
+            setLoading(true);
+            toast.loading(`Opening Google Sheet: ${pickedDoc.name}...`, { id: "sheet-fetch" });
+            
+            // 1. Fetch metadata to get first sheet title
+            const metadata = await fetchSpreadsheetMetadata(pickedDoc.id, token!);
+            const firstSheetTitle = metadata.sheets?.[0]?.properties?.title || "Sheet1";
+            
+            // 2. Fetch sheet values
+            const values = await readSpreadsheetRange(pickedDoc.id, `${firstSheetTitle}!A1:Z500`, token!);
+            toast.dismiss("sheet-fetch");
+
+            if (!values || values.length <= 1) {
+              toast.error("The selected Google Sheet does not contain enough data rows.");
+              setLoading(false);
+              return;
+            }
+
+            const headerRow = values[0];
+            const dataRows = values.slice(1);
+
+            // Convert into object rows
+            const jsonRows = dataRows.map((row: any[]) => {
+              const obj: Record<string, any> = {};
+              headerRow.forEach((h: string, i: number) => {
+                obj[h] = row[i] !== undefined ? String(row[i]) : "";
+              });
+              return obj;
+            });
+
+            setRawHeaders(headerRow);
+            setRawRows(jsonRows);
+
+            // Run smart auto-matching
+            const initialMapping = autoDetectMappings(headerRow);
+            setColumnMapping(initialMapping);
+
+            setCurrentStep(2);
+            toast.success(`Loaded "${pickedDoc.name}" (${jsonRows.length} rows). Please verify column mappings.`);
+          } catch (err: any) {
+            console.error("Error reading Google Sheet data:", err);
+            toast.dismiss("sheet-fetch");
+            toast.error(err.message || "Failed to load Google Sheet data. Please ensure file permissions.");
+          } finally {
+            setLoading(false);
+          }
+        },
+        () => {
+          toast.info("Google Sheet selection cancelled.");
+        }
+      );
+    } catch (err: any) {
+      console.error("Google Sheets Picker error:", err);
+      toast.error(err.message || "Could not open Google Picker.");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   // 1. Download CSV Sample Template
   const downloadCsvTemplate = () => {
@@ -1457,14 +1538,44 @@ export function BulkUploadDialog({
                   accept=".xlsx,.xls,.csv" 
                 />
 
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md mt-1 pointer-events-none"
-                >
-                  <FileSpreadsheet className="w-4 h-4 mr-1.5" />
-                  Select File from Computer
-                </Button>
+                <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
+                  <Button 
+                    type="button"
+                    variant="default" 
+                    size="sm" 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md pointer-events-none"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+                    Select Local File (.csv / .xlsx)
+                  </Button>
+
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm" 
+                    disabled={isGoogleLoading}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleGoogleSheetImport();
+                    }}
+                    className="bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold px-4 py-2 rounded-xl text-xs shadow-sm hover:border-emerald-500"
+                  >
+                    {isGoogleLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-1.5 animate-spin text-emerald-600" />
+                        Connecting Google Drive...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-1.5" viewBox="0 0 24 24">
+                          <path fill="#0F9D58" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+                          <path fill="#FFF" d="M14 6H7v12h10V9l-3-3zm-1 3.5V7.5L15.5 10H13zM9 13h6v1.5H9V13zm0-2h6v1.5H9V11zm0 4h4v1.5H9V15z"/>
+                        </svg>
+                        Import with Google Picker / Sheets
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {/* FIELD VALIDATION GUIDELINES CARD */}

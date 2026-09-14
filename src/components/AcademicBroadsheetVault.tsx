@@ -65,6 +65,11 @@ import { ReportCardPrintPreviewModal } from "./ReportCardPrintPreviewModal";
 import { GradingSystemModal } from "./GradingSystemModal";
 import { AtRiskInterventionModal, getStoredStudentIntervention, getAllStudentInterventions, StudentInterventionRecord } from "./AtRiskInterventionModal";
 import { mockBillingRecords } from "../mockData";
+import { 
+  acquireGoogleWorkspaceToken, 
+  exportBroadsheetToGoogleSheet, 
+  getCachedGoogleAccessToken 
+} from "@/lib/googleWorkspace";
 
 interface AcademicBroadsheetVaultProps {
   currentProfile: UserProfile;
@@ -943,6 +948,56 @@ export function AcademicBroadsheetVault({
     URL.revokeObjectURL(url);
 
     toast.success(`Exported ${filteredBroadsheetRows.length} filtered student record(s) as JSON!`);
+  };
+
+  const [isExportingToSheets, setIsExportingToSheets] = useState(false);
+
+  // Handle Export directly to Google Sheets in user's Google Drive
+  const handleExportToGoogleSheets = async () => {
+    if (filteredBroadsheetRows.length === 0) {
+      toast.error("No broadsheet records available to export to Google Sheets.");
+      return;
+    }
+
+    setIsExportingToSheets(true);
+    try {
+      let token = getCachedGoogleAccessToken();
+      if (!token) {
+        toast.info("Connecting to your Google Account...");
+        token = await acquireGoogleWorkspaceToken();
+      }
+
+      toast.loading("Creating Google Sheet in your Google Drive...", { id: "sheet-export" });
+
+      const studentScoreData = filteredBroadsheetRows.map((r) => ({
+        name: r.studentName,
+        admissionNo: r.regNumber || r.studentId,
+        scores: r.subjectScores,
+        overallAverage: r.averagePercentage,
+        position: `Rank #${r.classRank}`
+      }));
+
+      const result = await exportBroadsheetToGoogleSheet(
+        selectedClass,
+        ALL_SUBJECTS,
+        studentScoreData,
+        token
+      );
+
+      toast.dismiss("sheet-export");
+      toast.success("Successfully exported to Google Sheets!");
+      
+      // Notify admin with direct link
+      if (result.spreadsheetUrl) {
+        window.open(result.spreadsheetUrl, "_blank");
+      }
+    } catch (err: any) {
+      console.error("Google Sheets export error:", err);
+      toast.dismiss("sheet-export");
+      toast.error(err.message || "Failed to export broadsheet to Google Sheets.");
+    } finally {
+      setIsExportingToSheets(false);
+    }
   };
 
   // Handle Export Broadsheet & Gradebook to PDF
@@ -2503,6 +2558,30 @@ export function AcademicBroadsheetVault({
                         <div>
                           <div className="font-bold text-xs">Export as CSV (.csv)</div>
                           <div className="text-[10px] text-slate-400 group-hover:text-emerald-100">Structured table for Excel & Google Sheets</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isExportingToSheets}
+                        onClick={() => {
+                          handleExportToGoogleSheets();
+                          setIsExportMenuOpen(false);
+                        }}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 text-xs text-left rounded-lg text-emerald-800 bg-emerald-50/70 hover:bg-emerald-600 hover:text-white font-medium transition group cursor-pointer"
+                      >
+                        <div className="p-1.5 bg-emerald-200 text-emerald-900 rounded-lg group-hover:bg-emerald-800 group-hover:text-white transition shrink-0">
+                          <svg className="w-4 h-4" viewBox="0 0 24 24">
+                            <path fill="#0F9D58" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+                            <path fill="#FFF" d="M14 6H7v12h10V9l-3-3zm-1 3.5V7.5L15.5 10H13zM9 13h6v1.5H9V13zm0-2h6v1.5H9V11zm0 4h4v1.5H9V15z"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs flex items-center gap-1.5">
+                            <span>Export to Google Sheets</span>
+                            {isExportingToSheets && <RefreshCw className="w-3 h-3 animate-spin text-emerald-600" />}
+                          </div>
+                          <div className="text-[10px] text-emerald-600 group-hover:text-emerald-100">Sync live sheet directly to your Google Drive</div>
                         </div>
                       </button>
 

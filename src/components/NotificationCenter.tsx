@@ -11,7 +11,11 @@ import {
   Info, 
   Sparkles,
   ChevronRight,
-  Plus
+  Plus,
+  Mail,
+  UserPlus,
+  Receipt,
+  Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Notification, NotificationCategory, UserRole } from '../types';
@@ -102,6 +106,28 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const setIsOpen = propsSetIsOpen !== undefined ? propsSetIsOpen : setLocalIsOpen;
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | NotificationCategory>('all');
 
+  // Listen for real-time notification events
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const saved = localStorage.getItem('CS_NOTIFICATIONS');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setLocalNotifications(parsed);
+          }
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('cs_notification_created', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('cs_notification_created', handleSync);
+    };
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('CS_NOTIFICATIONS', JSON.stringify(notifications));
   }, [notifications]);
@@ -185,6 +211,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return <Calendar className="w-4 h-4 text-emerald-500" />;
       case 'payment_deadline':
         return <CreditCard className="w-4 h-4 text-rose-500" />;
+      case 'lead_alert':
+        return <Mail className="w-4 h-4 text-purple-500" />;
+      case 'registration':
+        return <UserPlus className="w-4 h-4 text-indigo-500" />;
+      case 'receipt':
+        return <Receipt className="w-4 h-4 text-emerald-600" />;
       default:
         return <Info className="w-4 h-4 text-indigo-500" />;
     }
@@ -198,6 +230,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return 'bg-emerald-50 text-emerald-800 border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/30';
       case 'payment_deadline':
         return 'bg-rose-50 text-rose-800 border-rose-100 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/30';
+      case 'lead_alert':
+        return 'bg-purple-50 text-purple-800 border-purple-100 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-900/30';
+      case 'registration':
+        return 'bg-blue-50 text-blue-800 border-blue-100 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900/30';
+      case 'receipt':
+        return 'bg-emerald-50 text-emerald-800 border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/30';
       default:
         return 'bg-indigo-50 text-indigo-800 border-indigo-100 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-900/30';
     }

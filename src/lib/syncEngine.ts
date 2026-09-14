@@ -669,7 +669,7 @@ export function getSyncEngineStats(): SyncEngineStats {
     latencyMs: 38,
     isOnline: navigator.onLine,
     firestoreConnected: true,
-    databaseId: firebaseConfig.firestoreDatabaseId || 'ai-studio-cornerstreams',
+    databaseId: (firebaseConfig as Record<string, any>).firestoreDatabaseId || '(default)',
     region: 'europe-west2 (London)'
   };
 }

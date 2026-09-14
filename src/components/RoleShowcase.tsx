@@ -158,7 +158,7 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
   ];
 
   return (
-    <section id="demo-workbook" className="py-24 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+    <section id="demo-workbook" className="py-16 sm:py-24 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 w-full max-w-full overflow-hidden scroll-mt-20 sm:scroll-mt-24">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
         
         {/* HEADER SECTION */}
@@ -401,7 +401,7 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
           </div>
 
           {/* SIMULATION WORKSPACE STAGE (7 Columns) */}
-          <div className="p-6 sm:p-8 lg:col-span-7 bg-[#f8fafc] dark:bg-slate-900/40 flex items-center justify-center min-h-[460px] relative">
+          <div className="p-4 sm:p-8 lg:col-span-7 bg-[#f8fafc] dark:bg-slate-900/40 flex items-center justify-center min-h-[420px] sm:min-h-[460px] relative w-full overflow-hidden">
             
             <AnimatePresence mode="wait">
               
@@ -416,10 +416,10 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
                   className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg p-5 space-y-4"
                 >
                   {/* Internal Bar */}
-                  <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <GraduationCap className="text-indigo-600 dark:text-indigo-400 w-5 h-5 animate-pulse" />
-                      <span className="font-sans font-black text-xs text-indigo-950 dark:text-white uppercase tracking-wider">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <GraduationCap className="text-indigo-600 dark:text-indigo-400 w-5 h-5 animate-pulse shrink-0" />
+                      <span className="font-sans font-black text-xs text-indigo-950 dark:text-white uppercase tracking-wider truncate">
                         Government Secondary School, Ofabo
                       </span>
                     </div>
@@ -568,16 +568,16 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
                   transition={{ duration: 0.2 }}
                   className="w-full max-w-lg bg-white border-2 border-slate-300 rounded-2xl shadow-xl p-5 sm:p-6 space-y-4 text-slate-900"
                 >
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2.5 pb-2 border-b border-slate-200">
                     <div className="flex items-center gap-1.5">
-                      <Calculator className="text-emerald-600 w-5 h-5" />
+                      <Calculator className="text-emerald-600 w-5 h-5 shrink-0" />
                       <span className="font-sans font-black text-xs text-indigo-950 uppercase tracking-wider">
                         Report Template Equations
                       </span>
                     </div>
 
                     {/* Report Format Selector */}
-                    <div className="flex bg-slate-100 p-1.0 rounded-lg text-[9px] font-black uppercase border border-slate-200">
+                    <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-lg text-[9px] font-black uppercase border border-slate-200">
                       {[
                         { id: "half_term", label: "Half-Term" },
                         { id: "full_term", label: "Full Term" },
@@ -771,7 +771,7 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
                   transition={{ duration: 0.2 }}
                   className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg p-5 space-y-4"
                 >
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-1.5">
                       <Wallet2 className="text-purple-600 w-5 h-5 flex-shrink-0" />
                       <span className="font-sans font-black text-xs text-indigo-950 dark:text-white uppercase tracking-wider">
@@ -780,7 +780,7 @@ export default function RoleShowcase({ onChoosePlan }: RoleShowcaseProps) {
                     </div>
 
                     {/* Ledger format selector */}
-                    <div className="flex bg-slate-100 dark:bg-slate-950 p-0.5 rounded-lg text-[8px] font-black uppercase border border-slate-200 dark:border-slate-850">
+                    <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg text-[8px] font-black uppercase border border-slate-200 dark:border-slate-850">
                       {[
                         { id: "school_fees", label: "School Fees" },
                         { id: "admissions", label: "Admissions" },

@@ -11,6 +11,8 @@ import {
 import { generateSampleReportCard, generateSampleCBT, generateSampleFinance } from "../utils/samplePdfs";
 import RoleShowcase from "./RoleShowcase";
 import { api } from "../lib/api";
+import { dispatchContactNotification, dispatchPageViewNotification } from "../lib/notifications";
+import { LegalTrustModal, LegalTabType } from "./LegalTrustModal";
 
 const WHATSAPP_RAW = "2348141880550";
 
@@ -51,9 +53,19 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
   const [submitting, setSubmitting] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState<LegalTabType>('privacy');
+
+  const openLegalModal = (tab: LegalTabType) => {
+    setLegalModalTab(tab);
+    setLegalModalOpen(true);
+  };
 
   // Monitor scroll distance for the slide-up toggle arrow immediately on any scroll
   useEffect(() => {
+    // Dispatch page view notification across Telegram, Email, and WhatsApp
+    dispatchPageViewNotification("Public Landing Portal");
+
     const handleScroll = () => {
       const scrollPos = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
       if (scrollPos > 10) {
@@ -154,6 +166,17 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
     const waUrl = `https://wa.me/${WHATSAPP_RAW}?text=${encodeURIComponent(waMessage)}`;
 
     try {
+      // Dispatch multi-channel notification (Telegram Group/Channel + 4 Admin Inboxes + WhatsApp)
+      dispatchContactNotification({
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        schoolName: contact.school_name,
+        subject: `Inquiry for ${contact.school_name || "Institution"}`,
+        message: contact.message || "Requested institutional onboarding demo and consultation.",
+        source: "Landing Page Contact Section"
+      });
+
       await api.post("/leads", {
         name: contact.name,
         email: contact.email,
@@ -180,11 +203,11 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-emerald-500 selection:text-white relative pt-16">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-50 flex flex-col selection:bg-emerald-500 selection:text-white relative pt-16 w-full max-w-full overflow-x-hidden viewport-fit-screen">
       <Navbar currentView="landing" onChangeView={onChangeView} />
 
       {/* HERO */}
-      <section className="relative overflow-hidden py-16 sm:py-20 lg:py-24 border-b border-slate-200">
+      <section className="relative overflow-hidden py-16 sm:py-20 lg:py-24 border-b border-slate-200 w-full max-w-full">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-blue-50/30 -z-10" />
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-12 items-center">
           <motion.div 
@@ -210,14 +233,6 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
               >
                 Onboard your school <ArrowRight size={18} />
               </Button>
-              <button
-                type="button"
-                onClick={() => openDirectWhatsApp()}
-                className="w-full sm:w-auto px-6 h-12 text-base font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-full flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
-              >
-                <MessageCircle size={18} />
-                <span>Chat on WhatsApp</span>
-              </button>
               <Button
                 variant="outline"
                 onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })}
@@ -234,17 +249,17 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
           </motion.div>
           
           <div className="relative mt-8 lg:mt-0">
-            <div className="absolute -top-6 -left-6 w-32 h-32 bg-emerald-500/10 rounded-2xl rotate-6" />
-            <div className="absolute -bottom-6 -right-6 w-40 h-40 bg-indigo-500/10 rounded-2xl -rotate-3" />
+            <div className="hidden sm:block absolute -top-6 -left-6 w-32 h-32 bg-emerald-500/10 rounded-2xl rotate-6 pointer-events-none -z-10" />
+            <div className="hidden sm:block absolute -bottom-6 -right-6 w-40 h-40 bg-indigo-500/10 rounded-2xl -rotate-3 pointer-events-none -z-10" />
             <img
               src={HERO_IMG}
               alt="Nigerian classroom"
               className="relative rounded-2xl shadow-xl border border-slate-200/80 object-cover w-full h-[260px] sm:h-[360px] md:h-[440px]"
             />
-            <div className="absolute -bottom-3 left-4 sm:left-6 bg-white rounded-xl shadow-xl px-5 py-4 border border-slate-100">
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Active Deployments</div>
-              <div className="font-sans font-black text-2xl text-indigo-950 mt-1">42 schools live</div>
-              <div className="text-[10px] text-emerald-500 font-extrabold uppercase tracking-widest mt-1">Lagos &bull; Abuja &bull; PH</div>
+            <div className="absolute -bottom-3 left-3 sm:left-6 bg-white rounded-xl shadow-xl px-4 sm:px-5 py-3 sm:py-4 border border-slate-100 max-w-[calc(100%-1.5rem)] sm:max-w-xs">
+              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Purpose-Built Cloud</div>
+              <div className="font-sans font-black text-base sm:text-xl text-indigo-950 mt-1 leading-snug">For Nigerian &amp; African Schools</div>
+              <div className="text-[10px] text-emerald-600 font-extrabold uppercase tracking-widest mt-1">Lagos &bull; Abuja &bull; Pan-Africa</div>
             </div>
           </div>
         </div>
@@ -254,7 +269,7 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
       <RoleShowcase onChoosePlan={handleChoosePlan} />
 
       {/* CORE FEATURES */}
-      <section id="features" className="py-20 sm:py-24 bg-white border-b border-slate-200">
+      <section id="features" className="py-20 sm:py-24 bg-white border-b border-slate-200 w-full max-w-full overflow-hidden scroll-mt-20 sm:scroll-mt-24">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
           <div className="text-center space-y-2 max-w-3xl mx-auto mb-12">
             <span className="text-[10px] font-black tracking-widest uppercase bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">
@@ -282,7 +297,7 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
       </section>
 
       {/* SAMPLES */}
-      <section id="samples" className="py-20 sm:py-24 bg-slate-50 border-b border-slate-200">
+      <section id="samples" className="py-20 sm:py-24 bg-slate-50 border-b border-slate-200 w-full max-w-full overflow-hidden scroll-mt-20 sm:scroll-mt-24">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
           <div className="text-center max-w-3xl mx-auto space-y-4 mb-12">
             <span className="text-[10px] font-black tracking-widest uppercase bg-indigo-100 text-indigo-950 px-3 py-1 rounded-full">
@@ -367,7 +382,7 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
       </section>
 
       {/* PRICING */}
-      <section id="pricing" className="py-20 sm:py-24 bg-white border-b border-slate-200">
+      <section id="pricing" className="py-20 sm:py-24 bg-white border-b border-slate-200 w-full max-w-full overflow-hidden scroll-mt-20 sm:scroll-mt-24">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto space-y-4">
             <span className="text-[10px] font-black tracking-widest uppercase bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">
@@ -509,25 +524,20 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
       </section>
 
       {/* FOUNDER STORY */}
-      <section id="about" className="py-20 sm:py-24 bg-white border-b border-slate-200">
+      <section id="about" className="py-20 sm:py-24 bg-white border-b border-slate-200 w-full max-w-full overflow-hidden scroll-mt-20 sm:scroll-mt-24">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 grid md:grid-cols-5 gap-12 items-center">
           <div className="md:col-span-2 flex justify-center">
-            <div className="relative max-w-sm w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl text-center shadow-sm">
-              <div className="absolute -top-4 -left-4 w-28 h-28 bg-emerald-500/10 rounded-2xl rotate-6 -z-10" />
-              <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-indigo-500/10 rounded-2xl -rotate-3 -z-10" />
-              <div className="w-full h-72 sm:h-80 rounded-xl overflow-hidden bg-slate-200 border border-slate-300">
+            <div className="relative max-w-sm w-full bg-slate-50 border border-slate-200 p-3 sm:p-4 rounded-2xl shadow-sm">
+              <div className="hidden sm:block absolute -top-4 -left-4 w-28 h-28 bg-emerald-500/10 rounded-2xl rotate-6 -z-10 pointer-events-none" />
+              <div className="hidden sm:block absolute -bottom-4 -right-4 w-32 h-32 bg-indigo-500/10 rounded-2xl -rotate-3 -z-10 pointer-events-none" />
+              <div className="w-full h-80 sm:h-96 rounded-xl overflow-hidden bg-slate-200 border border-slate-300">
                 <img
                   src="/src/assets/images/founder_classroom_paperwork_1781718859228.jpg"
-                  alt="Mervydean Hilary — Founder teaching in a classroom with physical paperwork grading burden"
+                  alt="Teaching in a secondary classroom with physical paperwork grading"
                   className="w-full h-full object-cover object-top"
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <h4 className="font-sans font-black text-lg text-indigo-950 mt-4 leading-none">Mervydean Hilary</h4>
-              <p className="text-xs text-slate-400 font-bold mt-1.5">Founder &bull; Corner Streams</p>
-              <span className="inline-block mt-3 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-wider px-3 py-1 rounded-full">
-                6 years in the classroom
-              </span>
             </div>
           </div>
 
@@ -539,26 +549,26 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
               Honoring Our Classroom Roots
             </h3>
             <p className="text-slate-650 text-xs sm:text-sm leading-relaxed font-semibold">
-              After six active years in primary and secondary classrooms, our founder, <span className="text-indigo-950 font-black">Mervydean Hilary</span>, experienced firsthand how paperwork grids slow instruction down and trigger massive data loops.
+              Serving as a secondary school teacher starting from his NYSC days, our founder observed firsthand how paper-heavy workflows, manual grading grids, and administrative bottlenecks inside the four walls of the school system divert precious energy away from actual teaching.
             </p>
             <p className="text-slate-500 text-xs sm:text-[13px] leading-relaxed">
-              Corner Streams was born out of a critical mission to rescue African school administrations from the exhaustive, error-prone paper trap. Founded by an educator and technology architect who witnessed firsthand how administrative friction drains instructional energy, the platform was engineered to serve as a high-performance digital backbone for schools spanning Creche through Secondary tiers.
+              Corner Streams was born from a direct mission: to rescue secondary schools and educational institutions from the exhaustive, error-prone paper trap. Having stood before the chalkboard and witnessed the late nights spent tallying continuous assessments by hand, our founder recognized that schools needed an intuitive, resilient digital backbone&mdash;not complicated enterprise software.
             </p>
             <p className="text-slate-500 text-xs sm:text-[13px] leading-relaxed">
-              What began as an initiative to eliminate manual grading sheets and vulnerable paper-based test structures evolved into a highly secure, resilient ecosystem—unifying robust CBT assessment engines, real-time continuous assessment scaling matrices, and completely transparent financial ledgers. Today, Corner Streams stands as a testament to what happens when deep educational experience meets uncompromising digital engineering, empowering administrators, teachers, and parents with a single, paperless source of truth.
+              What began as an effort to replace manual score recording, misplaced records, and vulnerable paper exams has grown into an all-in-one institutional cloud&mdash;unifying robust CBT assessment engines, automated WAEC-standard continuous assessment broadsheets, and transparent financial ledgers. Corner Streams bridges the gap between everyday classroom realities and modern digital efficiency, giving educators, administrators, and parents a single, dependable source of truth.
             </p>
 
             <div className="grid grid-cols-3 gap-3 pt-4">
               <div className="bg-slate-50 border border-slate-200/85 p-3 rounded-lg text-center">
-                <div className="font-sans font-black text-xl text-emerald-500">6+</div>
-                <div className="text-[9px] uppercase font-bold text-slate-500 mt-1">Classroom Years</div>
+                <div className="font-sans font-black text-base sm:text-lg text-emerald-600">NYSC</div>
+                <div className="text-[9px] uppercase font-bold text-slate-500 mt-1">Classroom Origin</div>
               </div>
               <div className="bg-slate-50 border border-slate-200/85 p-3 rounded-lg text-center">
-                <div className="font-sans font-black text-xl text-indigo-600">42</div>
-                <div className="text-[9px] uppercase font-bold text-slate-500 mt-1">Schools live</div>
+                <div className="font-sans font-black text-base sm:text-lg text-indigo-600">100%</div>
+                <div className="text-[9px] uppercase font-bold text-slate-500 mt-1">Paperless Target</div>
               </div>
               <div className="bg-slate-50 border border-slate-200/85 p-3 rounded-lg text-center">
-                <div className="font-sans font-black text-xl text-indigo-950">∞</div>
+                <div className="font-sans font-black text-base sm:text-lg text-indigo-950">&infin;</div>
                 <div className="text-[9px] uppercase font-bold text-slate-500 mt-1">Loops Closed</div>
               </div>
             </div>
@@ -567,7 +577,7 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
       </section>
 
       {/* FAQ SECTION */}
-      <section id="faq" className="py-20 sm:py-24 bg-slate-50 border-t border-slate-200/80">
+      <section id="faq" className="py-20 sm:py-24 bg-slate-50 border-t border-slate-200/80 w-full max-w-full overflow-hidden scroll-mt-20 sm:scroll-mt-24">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
             <span className="text-[10px] font-black tracking-widest uppercase bg-indigo-50 border border-indigo-200 text-indigo-900 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
@@ -588,36 +598,55 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
               return (
                 <div 
                   key={idx}
-                  className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                  className={`rounded-2xl border transition-all duration-300 ease-in-out overflow-hidden ${
                     isOpen 
                       ? "bg-white border-indigo-300 shadow-md ring-1 ring-indigo-100" 
                       : "bg-white/80 hover:bg-white border-slate-200/90 shadow-sm"
                   }`}
                 >
-                  <button
+                  <motion.button
                     type="button"
                     onClick={() => toggleFaq(idx)}
-                    className="w-full py-4 px-5 sm:px-6 flex items-center justify-between text-left gap-4 cursor-pointer select-none"
+                    whileTap={{ scale: 0.992 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="w-full py-4 px-5 sm:px-6 flex items-center justify-between text-left gap-4 cursor-pointer select-none transition-colors duration-200 ease-in-out hover:bg-slate-50/70"
                     aria-expanded={isOpen}
                   >
                     <div className="space-y-1">
                       <span className="text-[10px] font-black tracking-wider uppercase text-emerald-600">
                         {faq.category}
                       </span>
-                      <h3 className={`font-sans text-sm sm:text-base font-bold transition-colors ${isOpen ? "text-indigo-950" : "text-slate-800"}`}>
+                      <h3 className={`font-sans text-sm sm:text-base font-bold transition-colors duration-200 ease-in-out ${isOpen ? "text-indigo-950" : "text-slate-800"}`}>
                         {faq.question}
                       </h3>
                     </div>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-transform duration-200 ${isOpen ? "bg-indigo-50 text-indigo-700 rotate-180" : "bg-slate-100 text-slate-500"}`}>
+                    <motion.div 
+                      animate={{ rotate: isOpen ? 180 : 0, scale: isOpen ? 1.05 : 1 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors duration-200 ease-in-out ${
+                        isOpen ? "bg-indigo-100 text-indigo-700 shadow-inner" : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
                       <ChevronDown size={18} />
-                    </div>
-                  </button>
+                    </motion.div>
+                  </motion.button>
 
-                  {isOpen && (
-                    <div className="px-5 sm:px-6 pb-5 pt-1 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 animate-fade-in">
-                      <p>{faq.answer}</p>
-                    </div>
-                  )}
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        key={`faq-content-${idx}`}
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.28, ease: "easeInOut" }}
+                        className="overflow-hidden border-t border-slate-100"
+                      >
+                        <div className="px-5 sm:px-6 pb-5 pt-3 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                          <p>{faq.answer}</p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}
@@ -640,7 +669,7 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
       </section>
 
       {/* CONTACT */}
-      <section id="contact" className="py-20 sm:py-24 bg-indigo-950 text-white relative">
+      <section id="contact" className="py-20 sm:py-24 bg-indigo-950 text-white relative w-full max-w-full overflow-hidden scroll-mt-20 sm:scroll-mt-24">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 grid md:grid-cols-2 gap-12">
           <div className="space-y-6">
             <span className="text-[10px] font-black tracking-widest uppercase bg-indigo-900 border border-indigo-800 text-white px-3 py-1 rounded-full inline-block">
@@ -654,13 +683,19 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
             </p>
             <div className="space-y-4 pt-4 text-xs font-bold text-slate-300">
               <a 
-                href="mailto:thecornerstreams@gmail.com" 
-                className="flex items-center gap-3 hover:text-white transition group"
+                href="mailto:thecornerstreams@gmail.com?subject=Corner%20Streams%20School%20Onboarding%20%26%20Inquiry&body=Hello%20Corner%20Streams%20Team%2C%0A%0AI%20would%20like%20to%20learn%20more%20about%20onboarding%20our%20school%20on%20Corner%20Streams.%0A%0ASchool%20Name%3A%0ALocation%3A%0APhone%20Number%3A%0A%0AThank%20you!" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 hover:text-white transition group cursor-pointer"
+                title="Send email via Gmail / default mail app"
               >
                 <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition">
                   <Mail size={16} />
                 </div>
-                <span>thecornerstreams@gmail.com</span>
+                <div>
+                  <span className="font-semibold block">thecornerstreams@gmail.com</span>
+                  <span className="text-[10px] text-emerald-400 font-normal">Click to compose email</span>
+                </div>
               </a>
 
               {/* Direct Clickable WhatsApp Contact */}
@@ -842,24 +877,260 @@ export default function LandingPage({ onChangeView, onSetSelectedPlan }: Landing
         </motion.button>
       </div>
 
-      {/* FOOTER */}
-      <footer className="bg-indigo-950 text-slate-400/80 text-xs py-8 border-t border-indigo-900/60">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
-          <div>© 2026 Corner Streams. All rights reserved.</div>
-          <div className="flex items-center gap-6">
-            <a 
-              href={`https://wa.me/${WHATSAPP_RAW}?text=${encodeURIComponent("Hello Corner Streams! I have a question regarding your platform.")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold transition"
-            >
-              <MessageCircle size={14} />
-              <span>Chat on WhatsApp</span>
-            </a>
-            <a href="mailto:thecornerstreams@gmail.com" className="hover:text-white transition">thecornerstreams@gmail.com</a>
+      {/* RICH MULTI-COLUMN FOOTER (OPTION C) */}
+      <footer className="bg-indigo-950 text-slate-300 text-xs border-t border-indigo-900/60 w-full max-w-full overflow-hidden">
+        {/* Main 4-Column Grid + Brand Summary */}
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-16 pb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-8">
+            {/* Brand & Purpose Column */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-700 via-indigo-600 to-emerald-500 p-0.5 flex items-center justify-center shadow-md">
+                  <div className="w-full h-full bg-indigo-950 rounded-[10px] flex items-center justify-center">
+                    <GraduationCap size={18} className="text-emerald-400" />
+                  </div>
+                </div>
+                <div>
+                  <span className="font-sans font-black text-lg text-white tracking-tight">Corner Streams</span>
+                  <span className="block text-[10px] text-emerald-400 font-bold tracking-wider uppercase -mt-0.5">Unified School Cloud</span>
+                </div>
+              </div>
+
+              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-md">
+                The modern institutional cloud for Nigerian and African schools. Automating continuous assessment, offline CBT examination engines, QR-verified tamper-proof report cards, and fee reconciliation.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-900/70 text-indigo-200 border border-indigo-800">
+                  <ShieldCheck size={13} className="text-emerald-400" /> NDPA / NDPR Compliant
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-900/70 text-indigo-200 border border-indigo-800">
+                  <Lock size={13} className="text-emerald-400" /> 256-bit Encrypted
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-900/70 text-indigo-200 border border-indigo-800">
+                  <QrCode size={13} className="text-emerald-400" /> Tamper-Proof QR
+                </span>
+              </div>
+            </div>
+
+            {/* Column 1: Core Platform Modules */}
+            <div className="space-y-3">
+              <h4 className="font-sans font-black text-xs uppercase tracking-widest text-white border-b border-indigo-900/80 pb-2">
+                Modules &amp; Solutions
+              </h4>
+              <ul className="space-y-2 text-xs">
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Offline-First CBT Engine
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Automated Broadsheet Vault
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Bursary &amp; Bank Reconciliation
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Parent &amp; Student Result Portal
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Termly &amp; Session Pricing
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 2: Resources & Curricula */}
+            <div className="space-y-3">
+              <h4 className="font-sans font-black text-xs uppercase tracking-widest text-white border-b border-indigo-900/80 pb-2">
+                Resources &amp; Guides
+              </h4>
+              <ul className="space-y-2 text-xs">
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => openLegalModal('migration')}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left flex items-center gap-1.5"
+                  >
+                    <span>School Onboarding Guide</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">4-Step</span>
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => openLegalModal('grading')}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    WAEC / NECO Grading Models
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => openLegalModal('security')}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Security &amp; QR Verification
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" })}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Frequently Asked Questions
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => onChangeView('login')}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Sign In to Dashboard
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 3: Trust, Legal & Contact */}
+            <div className="space-y-3">
+              <h4 className="font-sans font-black text-xs uppercase tracking-widest text-white border-b border-indigo-900/80 pb-2">
+                Trust &amp; Compliance
+              </h4>
+              <ul className="space-y-2 text-xs">
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => openLegalModal('privacy')}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Privacy Policy (NDPA / NDPR)
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => openLegalModal('terms')}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Terms of Service
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    onClick={() => openLegalModal('refund')}
+                    className="text-slate-400 hover:text-emerald-400 transition cursor-pointer text-left"
+                  >
+                    Billing &amp; Refund Policy
+                  </button>
+                </li>
+                <li className="pt-2 border-t border-indigo-900/60">
+                  <a 
+                    href="mailto:thecornerstreams@gmail.com?subject=Institutional%20Inquiry%20-%20Corner%20Streams"
+                    className="text-slate-400 hover:text-white transition flex items-center gap-1.5"
+                  >
+                    <Mail size={13} className="text-emerald-400 shrink-0" />
+                    <span className="truncate">thecornerstreams@gmail.com</span>
+                  </a>
+                </li>
+                <li>
+                  <a 
+                    href={`https://wa.me/${WHATSAPP_RAW}?text=${encodeURIComponent("Hello Corner Streams! I would like to inquire about onboarding our school.")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-400 hover:text-emerald-300 font-bold transition flex items-center gap-1.5"
+                  >
+                    <MessageCircle size={13} className="shrink-0" />
+                    <span>Chat on WhatsApp</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Sub-Footer Bar */}
+        <div className="border-t border-indigo-900/80 bg-indigo-950/90 py-6 px-4">
+          <div className="max-w-[1200px] mx-auto flex flex-col items-center justify-center text-center gap-3 text-[11px] text-slate-400/80">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px]">
+              <button 
+                type="button"
+                onClick={() => openLegalModal('privacy')}
+                className="hover:text-white transition cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+              <span>&bull;</span>
+              <button 
+                type="button"
+                onClick={() => openLegalModal('terms')}
+                className="hover:text-white transition cursor-pointer"
+              >
+                Terms of Service
+              </button>
+              <span>&bull;</span>
+              <button 
+                type="button"
+                onClick={() => openLegalModal('refund')}
+                className="hover:text-white transition cursor-pointer"
+              >
+                Billing &amp; Refunds
+              </button>
+              <span>&bull;</span>
+              <button 
+                type="button"
+                onClick={() => openLegalModal('security')}
+                className="hover:text-white transition cursor-pointer"
+              >
+                Security &amp; QR Verification
+              </button>
+              <span>&bull;</span>
+              <span className="text-emerald-400 font-bold">Nigeria &bull; Pan-Africa</span>
+            </div>
+            <div>&copy; 2026 Corner Streams. All rights reserved.</div>
           </div>
         </div>
       </footer>
+
+      {/* LEGAL & TRUST MODAL */}
+      <LegalTrustModal
+        isOpen={legalModalOpen}
+        initialTab={legalModalTab}
+        onClose={() => setLegalModalOpen(false)}
+        onOpenWhatsApp={(topic) => openDirectWhatsApp(`Hello Corner Streams! I have a question regarding: ${topic}`)}
+        onGoToOnboarding={() => onChangeView('register')}
+      />
     </div>
   );
 }

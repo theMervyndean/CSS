@@ -248,17 +248,42 @@ export const api = {
       const receipts = getLocal("CS_RECEIPTS");
       const val = {
         id: "rcp-" + Math.random().toString(36).substr(2, 9),
+        school_name: data.school_name || data.schoolName || data.school || "Corner Streams Institution",
+        schoolName: data.school_name || data.schoolName || data.school || "Corner Streams Institution",
         tier: data.tier || "unified_enterprise",
         duration: data.duration || "full_session",
         amount_ngn: data.amount_ngn || 200000,
         status: "pending",
         created_at: new Date().toISOString(),
-        submitted_by: data.school_email || "user@edu.ng",
-        whatsapp_code: data.whatsapp_code,
-        note: data.note || ""
+        submitted_by: data.school_email || data.submitted_by || "user@edu.ng",
+        whatsapp_code: data.whatsapp_code || Math.floor(100000 + Math.random() * 900000).toString(),
+        note: data.note || "Bank invoice payment clearance slip"
       };
       receipts.unshift(val);
       setLocal("CS_RECEIPTS", receipts);
+
+      if (typeof window !== "undefined") {
+        try {
+          const existingNotifs = JSON.parse(localStorage.getItem("CS_NOTIFICATIONS") || "[]");
+          const notif = {
+            id: `notif-rcp-${Date.now()}`,
+            title: `🧾 New Payment Receipt (₦${(val.amount_ngn || 0).toLocaleString()})`,
+            message: `Receipt logged by ${val.submitted_by} for ${val.school_name} [Ref #${val.whatsapp_code}]`,
+            category: "receipt",
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            targetRole: "all",
+            actionTab: "receipts"
+          };
+          existingNotifs.unshift(notif);
+          localStorage.setItem("CS_NOTIFICATIONS", JSON.stringify(existingNotifs));
+          window.dispatchEvent(new CustomEvent("cs_notification_created", { detail: notif }));
+        } catch (e) {}
+
+        window.dispatchEvent(new CustomEvent("cs_receipt_created", { detail: val }));
+        window.dispatchEvent(new Event("storage"));
+      }
+
       return { data: { success: true, receipt: val } };
     }
     if (url === "/schools/me/classes") {
@@ -329,6 +354,28 @@ export const api = {
         unread: true
       });
       setLocal("CS_MESSAGES", msgs);
+
+      if (typeof window !== "undefined") {
+        try {
+          const notifs = JSON.parse(localStorage.getItem("CS_NOTIFICATIONS") || "[]");
+          const notif = {
+            id: `notif-lead-${Date.now()}`,
+            title: `📩 New Landing Page Lead: ${leadObj.name}`,
+            message: `Lead from ${leadObj.name} (${leadObj.school}): "${leadObj.message || 'Demo request'}"`,
+            category: "lead_alert",
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            targetRole: "all",
+            actionTab: "leads"
+          };
+          notifs.unshift(notif);
+          localStorage.setItem("CS_NOTIFICATIONS", JSON.stringify(notifs));
+          window.dispatchEvent(new CustomEvent("cs_notification_created", { detail: notif }));
+        } catch (e) {}
+
+        window.dispatchEvent(new CustomEvent("cs_lead_created", { detail: leadObj }));
+        window.dispatchEvent(new Event("storage"));
+      }
 
       return { data: { success: true, lead: leadObj } };
     }

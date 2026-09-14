@@ -10,6 +10,11 @@ import {
 } from "lucide-react";
 import { mockUsers } from "../mockData";
 import { UserProfile } from "../types";
+import { 
+  dispatchSchoolOnboardedNotification, 
+  dispatchUserRegistrationNotification,
+  dispatchPageViewNotification 
+} from "../lib/notifications";
 
 interface RegisterProps {
   selectedPlan?: string;
@@ -123,6 +128,8 @@ export default function RegisterPage({
 
   // Sync plan and duration props if changed from home page selection
   useEffect(() => {
+    dispatchPageViewNotification("School Onboarding Portal");
+
     if (selectedPlan) {
       setCheckoutPlan(selectedPlan);
     }
@@ -457,8 +464,10 @@ export default function RegisterPage({
         // Save billing transfer receipt log automatically
         const receipts = JSON.parse(localStorage.getItem("CS_RECEIPTS") || "[]");
         const receiptCode = Math.floor(100000 + Math.random() * 900000).toString();
-        receipts.unshift({
+        const receiptObj = {
           id: "rcp-" + Math.random().toString(36).substr(2, 9),
+          school_name: formData.schoolName.trim(),
+          schoolName: formData.schoolName.trim(),
           tier: checkoutPlan,
           duration: checkoutDuration,
           amount_ngn: schoolPrice,
@@ -467,8 +476,24 @@ export default function RegisterPage({
           submitted_by: formData.email.trim(),
           whatsapp_code: receiptCode,
           note: `Auto-generated from Credit Card Checkout: ${paymentProvider.toUpperCase()} Gateway`
-        });
+        };
+        receipts.unshift(receiptObj);
         localStorage.setItem("CS_RECEIPTS", JSON.stringify(receipts));
+        window.dispatchEvent(new CustomEvent('cs_receipt_created', { detail: receiptObj }));
+        window.dispatchEvent(new Event('storage'));
+
+        // Dispatch instant multi-channel broadcast to Telegram Group/Channel, 4 Admin Email Inboxes, and WhatsApp
+        dispatchSchoolOnboardedNotification({
+          schoolName: formData.schoolName.trim(),
+          adminName: formData.principalName.trim(),
+          email: formData.email.trim(),
+          phone: formData.whatsapp.trim(),
+          state: formData.stateLocation,
+          lga: formData.country,
+          schoolId: customSchoolObj.id,
+          selectedPlan: checkoutPlan,
+          estimatedStudents: formData.selectedArms.length * 50
+        });
 
         // Add user profile
         const superAdminProfile: UserProfile = {
@@ -481,6 +506,16 @@ export default function RegisterPage({
           photoUrl: logoPreviewUrl || "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&q=80&w=150&h=150",
           arm: formData.selectedArms[0] || "Secondary"
         };
+
+        // Dispatch User Registration broadcast
+        dispatchUserRegistrationNotification({
+          fullName: superAdminProfile.fullName,
+          role: "School Administrator",
+          email: superAdminProfile.email || formData.email.trim(),
+          phone: superAdminProfile.phone || formData.whatsapp.trim(),
+          schoolName: formData.schoolName.trim(),
+          schoolId: customSchoolObj.id
+        });
 
         const existingUsers = JSON.parse(localStorage.getItem("CS_USERS_LIST") || "[]");
         existingUsers.push({
@@ -529,7 +564,7 @@ export default function RegisterPage({
   const activeVariant = ASSESSMENT_VARIANTS.find((v) => v.id === formData.assessmentVariant) || ASSESSMENT_VARIANTS[0];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between selection:bg-emerald-600 selection:text-white relative font-sans">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-50 text-slate-900 flex flex-col justify-between selection:bg-emerald-600 selection:text-white relative font-sans w-full max-w-full overflow-x-hidden viewport-fit-screen">
       {/* Light elegant subtle top gradient match */}
       <div className="absolute inset-0 bg-gradient-to-b from-indigo-50/40 via-slate-50 to-slate-50 -z-10" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-20 -z-10" />

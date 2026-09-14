@@ -261,7 +261,28 @@ export default function App() {
   });
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
-  // Sync state with localStorage
+  // Sync state with localStorage and listen for real-time alerts
+  useEffect(() => {
+    const handleNotifUpdate = () => {
+      try {
+        const saved = localStorage.getItem('CS_NOTIFICATIONS');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setNotifications(parsed);
+          }
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener('storage', handleNotifUpdate);
+    window.addEventListener('cs_notification_created', handleNotifUpdate);
+    return () => {
+      window.removeEventListener('storage', handleNotifUpdate);
+      window.removeEventListener('cs_notification_created', handleNotifUpdate);
+    };
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('CS_NOTIFICATIONS', JSON.stringify(notifications));
   }, [notifications]);
@@ -614,7 +635,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="min-h-screen w-full"
+            className="min-h-screen min-h-[100dvh] w-full max-w-full overflow-x-hidden viewport-fit-screen"
           >
             <LandingPage 
               onChangeView={setCurrentView} 
@@ -633,7 +654,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             exit={{ opacity: 0, y: -16, filter: 'blur(4px)' }}
             transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-            className="min-h-screen w-full"
+            className="min-h-screen min-h-[100dvh] w-full max-w-full overflow-x-hidden viewport-fit-screen"
           >
             <LoginPage 
               onLoginSuccess={(profile) => {
@@ -652,7 +673,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             exit={{ opacity: 0, y: -16, filter: 'blur(4px)' }}
             transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-            className="min-h-screen w-full"
+            className="min-h-screen min-h-[100dvh] w-full max-w-full overflow-x-hidden viewport-fit-screen"
           >
             <RegisterPage 
               selectedPlan={selectedPlan}
@@ -673,7 +694,7 @@ export default function App() {
             animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, scale: 0.995, filter: 'blur(2px)' }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="h-screen w-full flex flex-col overflow-hidden"
+            className="h-screen h-[100dvh] w-full max-w-full flex flex-col overflow-hidden viewport-fit"
           >
             {schoolState.kill_switch === true && currentUserProfile.role !== 'Super_Admin' ? (
               <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-center items-center p-6 text-center select-none">
@@ -711,7 +732,7 @@ export default function App() {
             ) : (
               <>
                 <CbtFloatingFocusBar />
-                <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 overflow-hidden select-none">
+                <div className="flex flex-col h-screen h-[100dvh] w-full max-w-full min-w-0 bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 overflow-hidden select-none viewport-fit">
                   {/* UNIFIED DESIGN MASTER HEADER */}
       {!isFocusMode && (
         <>
@@ -1655,10 +1676,10 @@ export default function App() {
         )}
 
         {/* WORKSPACE & VIEWPORTS */}
-        <main className="flex-1 flex flex-col min-w-0 bg-[#f4f6f8] overflow-y-auto scroll-smooth">
+        <main className="flex-1 flex flex-col min-w-0 w-full max-w-full bg-[#f4f6f8] overflow-y-auto scroll-smooth viewport-fit-workspace">
           
           {/* ACTIVE WORKSPACE RENDER BOX WITH DELUXE TRANSITION ASSISTANCE */}
-          <div className={`flex-1 overflow-y-auto flex flex-col relative ${currentUserProfile.role === 'Super_Admin' || isFocusMode ? 'p-0' : 'p-2 sm:p-3.5 md:p-4'} scroll-smooth`}>
+          <div className={`flex-1 overflow-y-auto flex flex-col relative w-full max-w-full min-w-0 ${currentUserProfile.role === 'Super_Admin' || isFocusMode ? 'p-0' : 'p-2 sm:p-3.5 md:p-4'} scroll-smooth`}>
             {!isFocusMode && currentUserProfile.role !== 'Super_Admin' && (
               <DynamicGreeting 
                 userProfile={currentUserProfile}
@@ -1675,7 +1696,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
-                className="flex-1 flex flex-col overflow-y-auto min-h-0 scroll-smooth"
+                className="flex-1 flex flex-col overflow-y-auto min-h-0 min-w-0 w-full max-w-full scroll-smooth"
               >
                 {renderWorkspaceContent()}
               </motion.div>
